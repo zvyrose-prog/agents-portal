@@ -4,8 +4,11 @@
 <head>
   <meta charset="UTF-8">
   <meta name="viewport" content="width=device-width, initial-scale=1.0, maximum-scale=1.0, user-scalable=no">
+  <title>פורטל סוכנים - מעקב והערות</title>
 
-<!-- הגדרות מסך מלא לאנדרואיד / Chrome -->
+  <link rel="manifest" href="manifest.json">
+
+  <!-- הגדרות מסך מלא לאנדרואיד / Chrome -->
   <meta name="mobile-web-app-capable" content="yes">
   <meta name="theme-color" content="#0f172a">
 
@@ -13,9 +16,7 @@
   <meta name="apple-mobile-web-app-capable" content="yes">
   <meta name="apple-mobile-web-app-status-bar-style" content="black-translucent">
   <meta name="apple-mobile-web-app-title" content="סוכנים">
-  
-  <title>פורטל סוכנים - מעקב והערות</title>
-  <link rel="manifest" href="manifest.json">
+
   <!-- Tailwind CSS -->
   <script src="https://cdn.tailwindcss.com"></script>
   <style>
@@ -34,6 +35,7 @@
     .no-scrollbar::-webkit-scrollbar {
       display: none;
     }
+
     .no-scrollbar {
       -ms-overflow-style: none;
       scrollbar-width: none;
@@ -49,7 +51,8 @@
   <div id="loginScreen" class="min-h-screen flex items-center justify-center p-4">
     <div class="bg-white p-6 rounded-2xl shadow-xl w-full max-w-sm border border-slate-200">
       <div class="text-center mb-6">
-        <div class="w-14 h-14 bg-blue-600 text-white text-3xl rounded-2xl flex items-center justify-center mx-auto mb-3 shadow-md">
+        <div
+          class="w-14 h-14 bg-blue-600 text-white text-3xl rounded-2xl flex items-center justify-center mx-auto mb-3 shadow-md">
           🔒
         </div>
         <h2 class="text-lg font-bold text-slate-800">כניסה לאזור אישי</h2>
@@ -94,7 +97,8 @@
           <div>
             <div class="flex items-center gap-1.5">
               <h1 id="dashAgentTitle" class="text-sm font-bold text-slate-800 leading-tight">תיק הזמנות סוכן</h1>
-              <span id="dashAgentBadge" class="bg-blue-100 text-blue-800 font-mono text-[11px] font-bold px-1.5 py-0.2 rounded"></span>
+              <span id="dashAgentBadge"
+                class="bg-blue-100 text-blue-800 font-mono text-[11px] font-bold px-1.5 py-0.2 rounded"></span>
             </div>
             <p id="agentHeaderSubtitle" class="text-[11px] text-slate-500 font-medium">טוען נתוני סוכן...</p>
           </div>
@@ -107,7 +111,8 @@
             <span>רענון</span>
           </button>
           <button onclick="logout()"
-            class="p-2 bg-rose-50 text-rose-600 rounded-lg text-xs font-bold active:bg-rose-100 border border-rose-100 transition shadow-xs" title="התנתק">
+            class="p-2 bg-rose-50 text-rose-600 rounded-lg text-xs font-bold active:bg-rose-100 border border-rose-100 transition shadow-xs"
+            title="התנתק">
             <span>יציאה</span>
           </button>
         </div>
@@ -115,13 +120,30 @@
 
       <!-- כפתורי סינון מהיר לפי שלבי טיפול -->
       <div class="flex gap-1.5 overflow-x-auto pt-2 pb-0.5 no-scrollbar text-xs">
-        <button onclick="setStatusFilter('all')" class="status-btn px-2.5 py-1 rounded-md font-bold whitespace-nowrap bg-slate-800 text-white" data-status="all">הכל</button>
-        <button onclick="setStatusFilter('new')" class="status-btn px-2.5 py-1 rounded-md font-bold whitespace-nowrap bg-white text-pink-700 border border-pink-200" data-status="new">חדשות</button>
-        <button onclick="setStatusFilter('picking')" class="status-btn px-2.5 py-1 rounded-md font-bold whitespace-nowrap bg-white text-purple-700 border border-purple-200" data-status="picking">בליקוט</button>
-        <button onclick="setStatusFilter('agent_wait')" class="status-btn px-2.5 py-1 rounded-md font-bold whitespace-nowrap bg-white text-amber-700 border border-amber-200" data-status="agent_wait">ממתין לסוכן</button>
-        <button onclick="setStatusFilter('packing')" class="status-btn px-2.5 py-1 rounded-md font-bold whitespace-nowrap bg-white text-sky-700 border border-sky-200" data-status="packing">במעבדה</button>
-        <button onclick="setStatusFilter('ready')" class="status-btn px-2.5 py-1 rounded-md font-bold whitespace-nowrap bg-white text-amber-700 border border-amber-200" data-status="ready">למשלוח</button>
-        <button onclick="setStatusFilter('done')" class="status-btn px-2.5 py-1 rounded-md font-bold whitespace-nowrap bg-white text-emerald-700 border border-emerald-200" data-status="done">לחיוב</button>
+        <button onclick="setStatusFilter('all')"
+          class="status-btn px-2.5 py-1 rounded-md font-bold whitespace-nowrap bg-slate-800 text-white"
+          data-status="all">הכל</button>
+        <button onclick="setStatusFilter('new')"
+          class="status-btn px-2.5 py-1 rounded-md font-bold whitespace-nowrap bg-white text-pink-700 border border-pink-200"
+          data-status="new">חדשות</button>
+        <button onclick="setStatusFilter('picking')"
+          class="status-btn px-2.5 py-1 rounded-md font-bold whitespace-nowrap bg-white text-purple-700 border border-purple-200"
+          data-status="picking">בליקוט</button>
+        <button onclick="setStatusFilter('agent_wait')"
+          class="status-btn px-2.5 py-1 rounded-md font-bold whitespace-nowrap bg-white text-amber-700 border border-amber-200"
+          data-status="agent_wait">ממתין לסוכן</button>
+        <button onclick="setStatusFilter('packing')"
+          class="status-btn px-2.5 py-1 rounded-md font-bold whitespace-nowrap bg-white text-sky-700 border border-sky-200"
+          data-status="packing">במעבדה</button>
+        <button onclick="setStatusFilter('ready')"
+          class="status-btn px-2.5 py-1 rounded-md font-bold whitespace-nowrap bg-white text-amber-700 border border-amber-200"
+          data-status="ready">למשלוח</button>
+        <button onclick="setStatusFilter('done')"
+          class="status-btn px-2.5 py-1 rounded-md font-bold whitespace-nowrap bg-white text-emerald-700 border border-emerald-200"
+          data-status="done">לחיוב</button>
+        <button onclick="setStatusFilter('archived')"
+          class="status-btn px-2.5 py-1 rounded-md font-bold whitespace-nowrap bg-white text-slate-700 border border-slate-300"
+          data-status="archived">📦 ארכיון</button>
       </div>
     </header>
 
@@ -135,7 +157,7 @@
   </div>
 
   <script>
-    const API_URL = 'https://script.google.com/macros/s/AKfycbyaofJk6FM7_Cu7ZS7v2m4HwLST0cp-0mJy_N13X05Qzsup48q2t-miUvLGLcflCLVl/exec';
+    const API_URL = 'https://script.google.com/macros/s/AKfycbxHz13LOJa7Md7Oq9HgTkcSBzCS7qA_XewfMl_uKQgU7VulYXcvZanLI0eZg5_7pGd7/exec';
     const SYSTEM_KEY = 'Ladlite2026Secure!';
 
     const STATUS_MAP = {
@@ -144,12 +166,14 @@
       agent_wait: { title: 'ממתין לסוכן', border: 'border-amber-400', badgeBg: 'bg-amber-100 text-amber-800' },
       packing: { title: 'במעבדה', border: 'border-sky-300', badgeBg: 'bg-sky-100 text-sky-800' },
       ready: { title: 'מוכן למשלוח', border: 'border-amber-300', badgeBg: 'bg-amber-100 text-amber-800' },
-      done: { title: 'מוכן לחיוב', border: 'border-emerald-300', badgeBg: 'bg-emerald-100 text-emerald-800' }
+      done: { title: 'מוכן לחיוב', border: 'border-emerald-300', badgeBg: 'bg-emerald-100 text-emerald-800' },
+      archived: { title: 'ארכיון / הושלם', border: 'border-slate-300', badgeBg: 'bg-slate-200 text-slate-700' }
     };
 
     let targetAgentId = '';
     let currentAgent = { id: '', name: 'סוכן', phone: '' };
     let orders = [];
+    let archivedOrders = null;
     let currentStatusFilter = 'all';
 
     function calculateDaysPassed(dateString) {
@@ -169,7 +193,7 @@
         currentCount = 1;
       }
       if (currentCount === 0) return false;
-      
+
       const readCount = parseInt(localStorage.getItem(`read_comments_agent_${order.id}`) || '0', 10);
       return currentCount > readCount;
     }
@@ -252,50 +276,101 @@
       loadOrdersFromServer();
     }
 
-    // טעינת ההזמנות שעובדת פיקס - מסוננת עבור הסוכן שהתחבר
     async function loadOrdersFromServer() {
       try {
         const res = await fetch(`${API_URL}?key=${SYSTEM_KEY}`);
         const data = await res.json();
         const allOrders = data.orders || [];
 
-        // סינון קשיח לפי הסוכן המחובר
-        orders = allOrders.filter(o => 
-          String(o.agentId || '').trim() === targetAgentId && 
-          o.status !== 'archived'
+        // סינון רק לפי הסוכן המחובר (כולל הזמנות מארכיון)
+        orders = allOrders.filter(o =>
+          String(o.agentId || '').trim() === targetAgentId
         );
 
         renderList();
       } catch (err) {
         console.error('שגיאה בטעינת הזמנות:', err);
-        document.getElementById('ordersContainer').innerHTML = 
+        document.getElementById('ordersContainer').innerHTML =
           '<div class="text-center py-10 text-rose-500 text-xs font-bold">שגיאה בטעינת הנתונים מהשרת</div>';
       }
     }
 
-    function setStatusFilter(status) {
+    async function loadArchivedOrders() {
+      try {
+        const res = await fetch(`${API_URL}?key=${SYSTEM_KEY}&type=archived`);
+        const data = await res.json();
+        const allArchived = data.orders || [];
+
+        // סינון הזמנות ארכיון רק של הסוכן הנוכחי
+        archivedOrders = allArchived.filter(o =>
+          String(o.agentId || '').trim() === targetAgentId
+        );
+      } catch (err) {
+        console.error('שגיאה בטעינת ארכיון:', err);
+        archivedOrders = [];
+      }
+    }
+
+    async function setStatusFilter(status) {
       currentStatusFilter = status;
+
+      // הדגשת הלשונית הפעילה בלי לשנות פונט או צבעים מקוריים
       document.querySelectorAll('.status-btn').forEach(b => {
         const isMatch = b.dataset.status === status;
-        b.className = isMatch 
-          ? 'status-btn px-2.5 py-1 rounded-md font-bold whitespace-nowrap bg-slate-800 text-white'
-          : 'status-btn px-2.5 py-1 rounded-md font-bold whitespace-nowrap bg-white text-slate-600 border border-slate-200';
+        if (isMatch) {
+          b.classList.add('ring-2', 'ring-slate-800', 'ring-offset-1');
+          b.classList.remove('opacity-60');
+        } else {
+          b.classList.remove('ring-2', 'ring-slate-800', 'ring-offset-1');
+          b.classList.add('opacity-60');
+        }
       });
+
+      // אם נבחר טאב ארכיון וטרם נטען מהשרת – מציגים אינדיקציה וטוענים אותו
+      if (status === 'archived' && archivedOrders === null) {
+        document.getElementById('ordersContainer').innerHTML = `
+      <div class="text-center py-12 text-slate-400 text-xs font-bold animate-pulse">
+        <span class="text-2xl block mb-2">⏳</span>
+        טוען הזמנות מארכיון...
+      </div>
+    `;
+        await loadArchivedOrders();
+      }
+
       renderList();
     }
 
-function renderList() {
+    function renderList() {
       const container = document.getElementById('ordersContainer');
 
-      let filtered = orders
-        .filter(o => currentStatusFilter === 'all' || o.status === currentStatusFilter)
-        .sort((a, b) => new Date(a.createdAt) - new Date(b.createdAt)); // FIFO
+      // בחירת מקור הנתונים: הזמנות ארכיון או הזמנות פעילות
+      let listToDisplay = [];
+      if (currentStatusFilter === 'archived') {
+        listToDisplay = archivedOrders || [];
+      } else if (currentStatusFilter === 'all') {
+        listToDisplay = orders;
+      } else {
+        listToDisplay = orders.filter(o => o.status === currentStatusFilter);
+      }
+
+      let filtered = listToDisplay.sort((a, b) => {
+        // בארכיון עדיף לראות את ההזמנות החדשות ביותר למעלה
+        if (currentStatusFilter === 'archived') {
+          return new Date(b.createdAt) - new Date(a.createdAt);
+        }
+        // בהזמנות פעילות שומרים על סדר FIFO
+        return new Date(a.createdAt) - new Date(b.createdAt);
+      });
 
       if (filtered.length === 0) {
+        const emptyMsg = currentStatusFilter === 'archived'
+          ? `אין הזמנות בארכיון עבור סוכן ${targetAgentId}`
+          : `אין הזמנות תואמות כרגע עבור סוכן ${targetAgentId}`;
+
         container.innerHTML = `
           <div class="text-center py-12 text-slate-400 text-xs">
             <span class="text-2xl block mb-1">📭</span>
-            אין הזמנות תואמות כרגע עבור סוכן ${targetAgentId}
+            ${emptyMsg}
           </div>
         `;
         return;
@@ -305,7 +380,7 @@ function renderList() {
         const stInfo = STATUS_MAP[order.status] || { title: order.status, border: 'border-slate-200', badgeBg: 'bg-slate-100 text-slate-700' };
         const days = calculateDaysPassed(order.createdAt);
         const commentsCount = Array.isArray(order.comments) ? order.comments.length : (order.comments ? 1 : 0);
-        
+
         // בדיקת הערה חדשה שלא נקראה
         const hasUnread = typeof hasUnreadComments === 'function' ? hasUnreadComments(order) : false;
         const cardBorder = hasUnread ? 'border-rose-500 ring-2 ring-rose-300' : stInfo.border;
@@ -383,7 +458,7 @@ function renderList() {
 
     function renderOrderCommentsList(comments) {
       if (!comments) return '<div class="text-[11px] text-slate-400">אין עדיין הערות להזמנה זו</div>';
-      
+
       let list = [];
       if (Array.isArray(comments)) {
         list = comments;
@@ -489,43 +564,99 @@ function renderList() {
       }
     }
 
-    async function toggleItems(orderId) {
-      const box = document.getElementById(`itemsBox-${orderId}`);
-      const arrow = document.getElementById(`arrow-${orderId}`);
-      const content = document.getElementById(`itemsContent-${orderId}`);
-      const loader = document.getElementById(`itemsLoader-${orderId}`);
-      const order = orders.find(o => String(o.id) === String(orderId));
+async function toggleItems(orderId) {
+  const box = document.getElementById(`itemsBox-${orderId}`);
+  const arrow = document.getElementById(`arrow-${orderId}`);
+  const content = document.getElementById(`itemsContent-${orderId}`);
+  const loader = document.getElementById(`itemsLoader-${orderId}`);
 
-      if (!box.classList.contains('hidden')) {
-        box.classList.add('hidden');
-        arrow.textContent = '▼';
-        return;
-      }
+  // 1. פתיחה וסגירה של התיבה
+  if (box && !box.classList.contains('hidden')) {
+    box.classList.add('hidden');
+    if (arrow) arrow.textContent = '▼';
+    return;
+  }
+  if (box) box.classList.remove('hidden');
+  if (arrow) arrow.textContent = '▲';
 
-      box.classList.remove('hidden');
-      arrow.textContent = '▲';
+  // 2. איתור ההזמנה בצורה גמישה (נרמול מחרוזות והסרת 07/ אם יש)
+  const cleanId = String(orderId).replace(/^07\//, '').trim();
+  const allOrdersList = (window.orders || []).concat(window.archivedOrders || []);
+  const order = allOrdersList.find(o => {
+    const oId = String(o.id || '').replace(/^07\//, '').trim();
+    return oId === cleanId || String(o.id) === String(orderId);
+  });
 
-      if (order.items && order.items.length > 0) {
-        renderOrderItems(orderId, order.items);
-        return;
-      }
+  // 3. בדיקה אם כבר שמור ב-order.items
+  if (order && Array.isArray(order.items) && order.items.length > 0) {
+    if (loader) loader.classList.add('hidden');
+    renderOrderItems(orderId, order.items);
+    return;
+  }
 
-      loader.classList.remove('hidden');
-      content.innerHTML = '<div class="text-center py-2 text-slate-400">טוען נתונים מרווחית...</div>';
-
-      try {
-        const res = await fetch(`${API_URL}?key=${SYSTEM_KEY}&pdfOrderId=${encodeURIComponent(orderId)}`);
-        const data = await res.json();
-        const doc = data.doc || data;
-        const rawItems = doc.items || doc.item_list || (doc.data && (doc.data.item_list || doc.data.items)) || [];
-        order.items = rawItems;
-        renderOrderItems(orderId, rawItems);
-      } catch (err) {
-        content.innerHTML = '<div class="text-rose-500 text-[11px]">שגיאה בטעינת הפריטים</div>';
-      } finally {
-        loader.classList.add('hidden');
-      }
+  // 4. שליפה ישירה מתוך cachedItems (עמודה O מהשרת)
+  if (order && order.cachedItems) {
+    let raw = order.cachedItems;
+    if (typeof raw === 'string') {
+      try { raw = JSON.parse(raw); } catch (e) { raw = null; }
     }
+
+    // בדיקת כל הווריאציות: doc.items / items / doc.item_list
+    const items = (raw && raw.doc && (raw.doc.items || raw.doc.item_list))
+               || (raw && (raw.items || raw.item_list))
+               || (Array.isArray(raw) ? raw : null);
+
+    if (Array.isArray(items) && items.length > 0) {
+      order.items = items;
+      if (loader) loader.classList.add('hidden');
+      renderOrderItems(orderId, items);
+      return; // הוצג מיד ב-0 שניות! שום קריאת רשת לא יוצאת
+    }
+  }
+
+  // 5. בדיקה במטמון מקומי localStorage
+  const cacheKey = `order_items_${orderId}`;
+  const localRaw = localStorage.getItem(cacheKey);
+  if (localRaw) {
+    try {
+      const parsed = JSON.parse(localRaw);
+      const localItems = parsed.data || parsed.items || (Array.isArray(parsed) ? parsed : null);
+      if (Array.isArray(localItems) && localItems.length > 0) {
+        if (order) order.items = localItems;
+        if (loader) loader.classList.add('hidden');
+        renderOrderItems(orderId, localItems);
+        return; // הוצג מיד ב-0 שניות!
+      }
+    } catch (e) {}
+  }
+
+  // 6. רשת ביטחון בלבד - רק אם אין נתונים באף מטמון
+  if (loader) loader.classList.remove('hidden');
+  if (content) content.innerHTML = '<div class="text-center py-2 text-slate-400">טוען נתונים מרווחית...</div>';
+
+  try {
+    const res = await fetch(`${API_URL}?key=${SYSTEM_KEY}&pdfOrderId=${encodeURIComponent(orderId)}`);
+    const data = await res.json();
+    const doc = data.doc || data;
+    const rawItems = doc.items || doc.item_list || (doc.data && (doc.data.item_list || doc.data.items)) || [];
+
+    if (order) {
+      order.items = rawItems;
+      order.cachedItems = doc;
+    }
+
+    renderOrderItems(orderId, rawItems);
+
+    localStorage.setItem(cacheKey, JSON.stringify({
+      data: rawItems,
+      expiresAt: Date.now() + (60 * 24 * 60 * 60 * 1000)
+    }));
+  } catch (err) {
+    if (content) content.innerHTML = '<div class="text-rose-500 text-[11px]">שגיאה בטעינת הפריטים</div>';
+  } finally {
+    if (loader) loader.classList.add('hidden');
+  }
+}
 
     // פונקציית מפתח זהה לחלוטין לזו של המחסן
     function getItemKey(item, idx) {
@@ -552,8 +683,8 @@ function renderList() {
       let overrides = {};
       if (order && order.itemOverrides) {
         try {
-          overrides = typeof order.itemOverrides === 'string' 
-            ? JSON.parse(order.itemOverrides) 
+          overrides = typeof order.itemOverrides === 'string'
+            ? JSON.parse(order.itemOverrides)
             : order.itemOverrides;
         } catch (e) {
           overrides = {};
@@ -564,20 +695,20 @@ function renderList() {
         const name = it.name || it.item_name || it.description || 'פריט';
         const qty = it.quantity || it.qty || 1;
         const code = String(it.catalogNum || it.item_id || it.catalog_number || '').trim();
-        
+
         // בדיקת המפתח המדויק מול מה שנשמר מהמחסן
         const key = getItemKey(it, idx);
         const overrideData = overrides[key];
         const isCollected = overrideData && overrideData.collected === true;
 
         // עיצוב שורה: שחור אם נאסף במחסן, לבן רגיל אם טרם
-        const rowStyle = isCollected 
-          ? 'bg-slate-900 border-slate-950 text-white' 
+        const rowStyle = isCollected
+          ? 'bg-slate-900 border-slate-950 text-white'
           : 'bg-white border-slate-200 text-slate-700';
 
         const nameStyle = isCollected ? '!text-white font-medium' : 'text-slate-800';
-        const badgeStyle = isCollected 
-          ? 'bg-emerald-500 text-slate-950 font-black' 
+        const badgeStyle = isCollected
+          ? 'bg-emerald-500 text-slate-950 font-black'
           : 'bg-blue-50 text-blue-700 font-bold';
 
         return `
@@ -602,7 +733,7 @@ function renderList() {
       location.reload();
     }
 
-    window.manualSync = async function() {
+    window.manualSync = async function () {
       const icon = document.getElementById('syncIcon');
       if (icon) icon.classList.add('animate-spin');
       try {
@@ -612,8 +743,30 @@ function renderList() {
       }
     };
 
+    // ניקוי אוטומטי של פריטי הזמנות שעברו 60 יום
+    function cleanupExpiredCache() {
+      const now = Date.now();
+      const keysToRemove = [];
+
+      for (let i = 0; i < localStorage.length; i++) {
+        const key = localStorage.key(i);
+        if (key && key.startsWith('order_items_')) {
+          try {
+            const item = JSON.parse(localStorage.getItem(key));
+            if (item && item.expiresAt && now > item.expiresAt) {
+              keysToRemove.push(key);
+            }
+          } catch (e) { }
+        }
+      }
+
+      keysToRemove.forEach(k => localStorage.removeItem(k));
+    }
+
     // בדיקת התחברות קודמת בעת טעינת הדף
     window.addEventListener('DOMContentLoaded', () => {
+      // מריץ ניקוי הזמנות פגות תוקף
+      cleanupExpiredCache();
       const saved = sessionStorage.getItem('agent_session');
       if (saved) {
         const { id, pass } = JSON.parse(saved);
