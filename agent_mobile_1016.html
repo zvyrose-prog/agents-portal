@@ -147,6 +147,17 @@
       </div>
     </header>
 
+    <!-- שורת חיפוש בארכיון (מוסתרת כברירת מחדל, מוצגת רק בטאב ארכיון) -->
+    <div id="archiveSearchWrapper" class="hidden px-3 pt-3">
+      <div class="relative w-full">
+        <input type="text" id="archiveSearchInput" oninput="renderList()"
+          placeholder="חיפוש בארכיון לפי שם לקוח, תאריך או מספר הזמנה..."
+          class="w-full pr-9 pl-3 py-2 text-xs bg-white border border-slate-300 rounded-xl outline-none focus:ring-2 focus:ring-slate-800 transition shadow-xs text-right font-sans"
+          dir="rtl" />
+        <span class="absolute right-3 top-2.5 text-slate-400 text-xs pointer-events-none">🔍</span>
+      </div>
+    </div>
+
     <!-- רשימת ההזמנות המוצגת לגובה -->
     <main class="p-3 space-y-3 flex-1" id="ordersContainer">
       <div class="text-center py-12 text-slate-400 text-xs flex items-center justify-center gap-2">
@@ -157,7 +168,7 @@
   </div>
 
   <script>
-    const API_URL = 'https://script.google.com/macros/s/AKfycbxHz13LOJa7Md7Oq9HgTkcSBzCS7qA_XewfMl_uKQgU7VulYXcvZanLI0eZg5_7pGd7/exec';
+    const API_URL = 'https://script.google.com/macros/s/AKfycbynfG8aivsgzgvKn4bzbddXpHL-nlWJT2vLslwpDEInUFjPzFDI295HFV7eIaD1w_st/exec';
     const SYSTEM_KEY = 'Ladlite2026Secure!';
 
     const STATUS_MAP = {
@@ -326,6 +337,17 @@
         }
       });
 
+      const searchWrapper = document.getElementById('archiveSearchWrapper');
+      const searchInput = document.getElementById('archiveSearchInput');
+      if (searchWrapper) {
+        if (status === 'archived') {
+          searchWrapper.classList.remove('hidden');
+        } else {
+          searchWrapper.classList.add('hidden');
+          if (searchInput) searchInput.value = ''; // מנקה את החיפוש כשעוזבים את הארכיון
+        }
+      }
+
       // אם נבחר טאב ארכיון וטרם נטען מהשרת – מציגים אינדיקציה וטוענים אותו
       if (status === 'archived' && archivedOrders === null) {
         document.getElementById('ordersContainer').innerHTML = `
@@ -343,7 +365,7 @@
     function renderList() {
       const container = document.getElementById('ordersContainer');
 
-      // בחירת מקור הנתונים: הזמנות ארכיון או הזמנות פעילות
+      // 1. בחירת מקור הנתונים: הזמנות ארכיון או הזמנות פעילות
       let listToDisplay = [];
       if (currentStatusFilter === 'archived') {
         listToDisplay = archivedOrders || [];
@@ -353,6 +375,40 @@
         listToDisplay = orders.filter(o => o.status === currentStatusFilter);
       }
 
+      // 2. סינון חיפוש לפי שם לקוח, תאריך או מספר הזמנה (פעיל רק בארכיון)
+      const searchInput = document.getElementById('archiveSearchInput');
+      const searchQuery = (searchInput ? searchInput.value : '').trim().toLowerCase();
+
+      if (currentStatusFilter === 'archived' && searchQuery) {
+        listToDisplay = listToDisplay.filter(order => {
+          // א. התאמת שם לקוח
+          const clientName = String(order.clientName || '').toLowerCase();
+          const nameMatch = clientName.includes(searchQuery);
+
+          // ב. התאמת מספר הזמנה
+          const idMatch = String(order.id || '').includes(searchQuery);
+
+          // ג. התאמת תאריך (תומך בפורמט DD/MM/YYYY ובתאריך המקורי)
+          const rawDate = String(order.createdAt || '');
+          let formattedDate = '';
+          if (order.createdAt) {
+            try {
+              const d = new Date(order.createdAt);
+              if (!isNaN(d.getTime())) {
+                const dd = String(d.getDate()).padStart(2, '0');
+                const mm = String(d.getMonth() + 1).padStart(2, '0');
+                const yyyy = d.getFullYear();
+                formattedDate = `${dd}/${mm}/${yyyy} ${dd}.${mm}.${yyyy} ${yyyy}-${mm}-${dd}`;
+              }
+            } catch (e) { }
+          }
+          const dateMatch = rawDate.toLowerCase().includes(searchQuery) || formattedDate.includes(searchQuery);
+
+          return nameMatch || idMatch || dateMatch;
+        });
+      }
+
+      // 3. מיון
       let filtered = listToDisplay.sort((a, b) => {
         // בארכיון עדיף לראות את ההזמנות החדשות ביותר למעלה
         if (currentStatusFilter === 'archived') {
@@ -362,20 +418,27 @@
         return new Date(a.createdAt) - new Date(b.createdAt);
       });
 
+      // 4. טיפול במצב ללא תוצאות
       if (filtered.length === 0) {
-        const emptyMsg = currentStatusFilter === 'archived'
-          ? `אין הזמנות בארכיון עבור סוכן ${targetAgentId}`
-          : `אין הזמנות תואמות כרגע עבור סוכן ${targetAgentId}`;
+        let emptyMsg = '';
+        if (currentStatusFilter === 'archived') {
+          emptyMsg = searchQuery
+            ? `לא נמצאו הזמנות בארכיון התואמות לחיפוש "${searchQuery}"`
+            : `אין הזמנות בארכיון עבור סוכן ${targetAgentId}`;
+        } else {
+          emptyMsg = `אין הזמנות תואמות כרגע עבור סוכן ${targetAgentId}`;
+        }
 
         container.innerHTML = `
-          <div class="text-center py-12 text-slate-400 text-xs">
-            <span class="text-2xl block mb-1">📭</span>
-            ${emptyMsg}
-          </div>
-        `;
+      <div class="text-center py-12 text-slate-400 text-xs">
+        <span class="text-2xl block mb-1">📭</span>
+        ${emptyMsg}
+      </div>
+    `;
         return;
       }
 
+      // 5. רינדור כרטיסיות ההזמנה
       container.innerHTML = filtered.map(order => {
         const stInfo = STATUS_MAP[order.status] || { title: order.status, border: 'border-slate-200', badgeBg: 'bg-slate-100 text-slate-700' };
         const days = calculateDaysPassed(order.createdAt);
@@ -387,72 +450,72 @@
         const unreadBadge = hasUnread ? '<span class="bg-rose-500 text-white font-bold text-[10px] px-1.5 py-0.5 rounded-full animate-pulse">הערה חדשה!</span>' : '';
 
         return `
-          <div class="bg-white rounded-xl border-2 ${cardBorder} shadow-xs overflow-hidden transition">
-            
-            <!-- ראש הכרטיס -->
-            <div class="p-3 bg-white">
-              <div class="flex items-center justify-between mb-1.5">
-                <div class="flex items-center gap-1.5">
-                  <span class="font-mono font-bold text-xs bg-slate-100 px-1.5 py-0.5 rounded text-slate-700">#${order.id}</span>
-                  <span class="status-badge ${stInfo.badgeBg}">${stInfo.title}</span>
-                  ${unreadBadge}
-                </div>
-                <span class="text-[10px] font-semibold px-2 py-0.5 rounded-full ${days >= 3 ? 'bg-rose-100 text-rose-700' : 'bg-slate-100 text-slate-600'}">
-                  ${days === 0 ? 'היום' : `${days} ימים`}
-                </span>
-              </div>
-              
-              <div class="text-sm font-bold text-slate-900 truncate mb-1">${order.clientName || 'לקוח ללא שם'}</div>
-              
-              <div class="flex items-center justify-between text-[11px] text-slate-500 pt-1 border-t border-slate-100">
-                <span>תאריך: ${order.createdAt ? new Date(order.createdAt).toLocaleDateString('he-IL') : '—'}</span>
-                <span>${order.deliveryInfo || ''}</span>
-              </div>
+      <div class="bg-white rounded-xl border-2 ${cardBorder} shadow-xs overflow-hidden transition">
+        
+        <!-- ראש הכרטיס -->
+        <div class="p-3 bg-white">
+          <div class="flex items-center justify-between mb-1.5">
+            <div class="flex items-center gap-1.5">
+              <span class="font-mono font-bold text-xs bg-slate-100 px-1.5 py-0.5 rounded text-slate-700">#${order.id}</span>
+              <span class="status-badge ${stInfo.badgeBg}">${stInfo.title}</span>
+              ${unreadBadge}
             </div>
-
-            <!-- אזור פריטים מרווחית (מתקפל) -->
-            <div id="itemsBox-${order.id}" class="hidden bg-slate-50 border-t border-b border-slate-100 p-2 text-xs">
-              <div class="text-[10px] font-bold text-slate-500 mb-1 flex justify-between items-center">
-                <span>פריטים בהזמנה מרווחית:</span>
-                <span id="itemsLoader-${order.id}" class="hidden text-blue-600 animate-spin">⟳</span>
-              </div>
-              <div id="itemsContent-${order.id}" class="space-y-1"></div>
-            </div>
-
-            <!-- אזור הערות למחסן (מתקפל) -->
-            <div id="commentsBox-${order.id}" class="hidden bg-amber-50/50 border-t border-b border-amber-200 p-3 text-xs">
-              <div class="font-bold text-slate-700 mb-2 flex items-center justify-between">
-                <span>💬 הערות ובקשות שינוי למחסן:</span>
-                <span class="text-[10px] text-slate-400">מופיע מיד בלוח המחסן</span>
-              </div>
-              
-              <div id="commentsList-${order.id}" class="space-y-1.5 max-h-36 overflow-y-auto mb-2.5">
-                ${renderOrderCommentsList(order.comments)}
-              </div>
-
-              <div class="flex gap-1.5">
-                <input type="text" id="commentInput-${order.id}" placeholder="כתוב שינוי/בקשה למחסן..." 
-                  class="flex-1 bg-white border border-slate-300 rounded-lg p-2 text-xs outline-none focus:ring-1 focus:ring-blue-500 font-normal" />
-                <button onclick="submitAgentComment('${order.id}')" class="bg-blue-600 hover:bg-blue-700 text-white px-3 py-2 rounded-lg font-bold text-xs shrink-0 shadow-xs active:scale-95 transition">
-                  שלח
-                </button>
-              </div>
-            </div>
-
-            <!-- פעולות מהירות -->
-            <div class="bg-slate-50 px-3 py-2 border-t border-slate-100 flex items-center justify-between gap-2">
-              <button onclick="toggleItems('${order.id}')" class="text-xs text-blue-600 font-bold hover:underline flex items-center gap-1">
-                <span id="arrow-${order.id}">▼</span> <span>פריטים</span>
-              </button>
-
-              <button onclick="toggleComments('${order.id}')" class="bg-white border border-slate-200 hover:border-amber-400 text-slate-700 px-2.5 py-1.5 rounded-lg text-xs font-bold shadow-xs flex items-center gap-1 active:scale-95 transition">
-                <span>💬 הערות</span>
-                ${commentsCount > 0 ? `<span class="bg-amber-100 text-amber-800 px-1.5 py-0.2 rounded-full text-[10px]">${commentsCount}</span>` : ''}
-              </button>
-            </div>
-
+            <span class="text-[10px] font-semibold px-2 py-0.5 rounded-full ${days >= 3 ? 'bg-rose-100 text-rose-700' : 'bg-slate-100 text-slate-600'}">
+              ${days === 0 ? 'היום' : `${days} ימים`}
+            </span>
           </div>
-        `;
+          
+          <div class="text-sm font-bold text-slate-900 truncate mb-1">${order.clientName || 'לקוח ללא שם'}</div>
+          
+          <div class="flex items-center justify-between text-[11px] text-slate-500 pt-1 border-t border-slate-100">
+            <span>תאריך: ${order.createdAt ? new Date(order.createdAt).toLocaleDateString('he-IL') : '—'}</span>
+            <div>${renderDeliveryBadge(order.deliveryInfo)}</div>
+          </div>
+        </div>
+
+        <!-- אזור פריטים מרווחית (מתקפל) -->
+        <div id="itemsBox-${order.id}" class="hidden bg-slate-50 border-t border-b border-slate-100 p-2 text-xs">
+          <div class="text-[10px] font-bold text-slate-500 mb-1 flex justify-between items-center">
+            <span>פריטים בהזמנה מרווחית:</span>
+            <span id="itemsLoader-${order.id}" class="hidden text-blue-600 animate-spin">⟳</span>
+          </div>
+          <div id="itemsContent-${order.id}" class="space-y-1"></div>
+        </div>
+
+        <!-- אזור הערות למחסן (מתקפל) -->
+        <div id="commentsBox-${order.id}" class="hidden bg-amber-50/50 border-t border-b border-amber-200 p-3 text-xs">
+          <div class="font-bold text-slate-700 mb-2 flex items-center justify-between">
+            <span>💬 הערות ובקשות שינוי למחסן:</span>
+            <span class="text-[10px] text-slate-400">מופיע מיד בלוח המחסן</span>
+          </div>
+          
+          <div id="commentsList-${order.id}" class="space-y-1.5 max-h-36 overflow-y-auto mb-2.5">
+            ${renderOrderCommentsList(order.comments)}
+          </div>
+
+          <div class="flex gap-1.5">
+            <input type="text" id="commentInput-${order.id}" placeholder="כתוב שינוי/בקשה למחסן..." 
+              class="flex-1 bg-white border border-slate-300 rounded-lg p-2 text-xs outline-none focus:ring-1 focus:ring-blue-500 font-normal" />
+            <button onclick="submitAgentComment('${order.id}')" class="bg-blue-600 hover:bg-blue-700 text-white px-3 py-2 rounded-lg font-bold text-xs shrink-0 shadow-xs active:scale-95 transition">
+              שלח
+            </button>
+          </div>
+        </div>
+
+        <!-- פעולות מהירות -->
+        <div class="bg-slate-50 px-3 py-2 border-t border-slate-100 flex items-center justify-between gap-2">
+          <button onclick="toggleItems('${order.id}')" class="text-xs text-blue-600 font-bold hover:underline flex items-center gap-1">
+            <span id="arrow-${order.id}">▼</span> <span>פריטים</span>
+          </button>
+
+          <button onclick="toggleComments('${order.id}')" class="bg-white border border-slate-200 hover:border-amber-400 text-slate-700 px-2.5 py-1.5 rounded-lg text-xs font-bold shadow-xs flex items-center gap-1 active:scale-95 transition">
+            <span>💬 הערות</span>
+            ${commentsCount > 0 ? `<span class="bg-amber-100 text-amber-800 px-1.5 py-0.2 rounded-full text-[10px]">${commentsCount}</span>` : ''}
+          </button>
+        </div>
+
+      </div>
+    `;
       }).join('');
     }
 
@@ -477,6 +540,52 @@
           <div class="text-slate-800 font-medium">${c.text}</div>
         </div>
       `).join('');
+    }
+
+    function renderDeliveryBadge(deliveryInfoStr) {
+      if (!deliveryInfoStr) return '';
+
+      let info = null;
+      try {
+        info = typeof deliveryInfoStr === 'object' ? deliveryInfoStr : JSON.parse(deliveryInfoStr);
+      } catch (e) {
+        return `<span class="text-[11px] text-slate-500">${deliveryInfoStr}</span>`;
+      }
+
+      if (!info || !info.statusText) {
+        return `<span class="text-[11px] text-slate-500">${deliveryInfoStr}</span>`;
+      }
+
+      let colorClasses = 'bg-slate-100 text-slate-700 border-slate-300';
+      let icon = '📦';
+
+      if (info.statusText.includes('בדרך') || info.statusText.includes('בחלוקה')) {
+        colorClasses = 'bg-blue-100 text-blue-800 border-blue-300 animate-pulse';
+        icon = '🚚';
+      } else if (info.statusText.includes('נמסר')) {
+        colorClasses = 'bg-emerald-100 text-emerald-800 border-emerald-300';
+        icon = '✅';
+      } else if (info.statusText.includes('שובץ')) {
+        colorClasses = 'bg-purple-100 text-purple-800 border-purple-300';
+        icon = '📋';
+      } else if (info.statusText.includes('מרלוג')) {
+        colorClasses = 'bg-amber-100 text-amber-800 border-amber-300';
+        icon = '🏬';
+      } else if (info.statusText.includes('נכשל') || info.statusText.includes('בוטל')) {
+        colorClasses = 'bg-rose-100 text-rose-800 border-rose-300';
+        icon = '⚠️';
+      }
+
+      const trackingLinkHtml = info.trackingUrl
+        ? `<a href="${info.trackingUrl}" target="_blank" class="underline ml-1 font-bold hover:text-blue-600">מעקב</a>`
+        : '';
+
+      return `
+    <div class="inline-flex items-center gap-1.5 px-2 py-0.5 rounded-md border text-[10px] font-bold ${colorClasses}">
+      <span>${icon} ${info.company || 'משלוח'}: ${info.statusText}</span>
+      ${trackingLinkHtml}
+    </div>
+  `;
     }
 
     function toggleComments(orderId) {
@@ -564,99 +673,99 @@
       }
     }
 
-async function toggleItems(orderId) {
-  const box = document.getElementById(`itemsBox-${orderId}`);
-  const arrow = document.getElementById(`arrow-${orderId}`);
-  const content = document.getElementById(`itemsContent-${orderId}`);
-  const loader = document.getElementById(`itemsLoader-${orderId}`);
+    async function toggleItems(orderId) {
+      const box = document.getElementById(`itemsBox-${orderId}`);
+      const arrow = document.getElementById(`arrow-${orderId}`);
+      const content = document.getElementById(`itemsContent-${orderId}`);
+      const loader = document.getElementById(`itemsLoader-${orderId}`);
 
-  // 1. פתיחה וסגירה של התיבה
-  if (box && !box.classList.contains('hidden')) {
-    box.classList.add('hidden');
-    if (arrow) arrow.textContent = '▼';
-    return;
-  }
-  if (box) box.classList.remove('hidden');
-  if (arrow) arrow.textContent = '▲';
-
-  // 2. איתור ההזמנה בצורה גמישה (נרמול מחרוזות והסרת 07/ אם יש)
-  const cleanId = String(orderId).replace(/^07\//, '').trim();
-  const allOrdersList = (window.orders || []).concat(window.archivedOrders || []);
-  const order = allOrdersList.find(o => {
-    const oId = String(o.id || '').replace(/^07\//, '').trim();
-    return oId === cleanId || String(o.id) === String(orderId);
-  });
-
-  // 3. בדיקה אם כבר שמור ב-order.items
-  if (order && Array.isArray(order.items) && order.items.length > 0) {
-    if (loader) loader.classList.add('hidden');
-    renderOrderItems(orderId, order.items);
-    return;
-  }
-
-  // 4. שליפה ישירה מתוך cachedItems (עמודה O מהשרת)
-  if (order && order.cachedItems) {
-    let raw = order.cachedItems;
-    if (typeof raw === 'string') {
-      try { raw = JSON.parse(raw); } catch (e) { raw = null; }
-    }
-
-    // בדיקת כל הווריאציות: doc.items / items / doc.item_list
-    const items = (raw && raw.doc && (raw.doc.items || raw.doc.item_list))
-               || (raw && (raw.items || raw.item_list))
-               || (Array.isArray(raw) ? raw : null);
-
-    if (Array.isArray(items) && items.length > 0) {
-      order.items = items;
-      if (loader) loader.classList.add('hidden');
-      renderOrderItems(orderId, items);
-      return; // הוצג מיד ב-0 שניות! שום קריאת רשת לא יוצאת
-    }
-  }
-
-  // 5. בדיקה במטמון מקומי localStorage
-  const cacheKey = `order_items_${orderId}`;
-  const localRaw = localStorage.getItem(cacheKey);
-  if (localRaw) {
-    try {
-      const parsed = JSON.parse(localRaw);
-      const localItems = parsed.data || parsed.items || (Array.isArray(parsed) ? parsed : null);
-      if (Array.isArray(localItems) && localItems.length > 0) {
-        if (order) order.items = localItems;
-        if (loader) loader.classList.add('hidden');
-        renderOrderItems(orderId, localItems);
-        return; // הוצג מיד ב-0 שניות!
+      // 1. פתיחה וסגירה של התיבה
+      if (box && !box.classList.contains('hidden')) {
+        box.classList.add('hidden');
+        if (arrow) arrow.textContent = '▼';
+        return;
       }
-    } catch (e) {}
-  }
+      if (box) box.classList.remove('hidden');
+      if (arrow) arrow.textContent = '▲';
 
-  // 6. רשת ביטחון בלבד - רק אם אין נתונים באף מטמון
-  if (loader) loader.classList.remove('hidden');
-  if (content) content.innerHTML = '<div class="text-center py-2 text-slate-400">טוען נתונים מרווחית...</div>';
+      // 2. איתור ההזמנה בצורה גמישה (נרמול מחרוזות והסרת 07/ אם יש)
+      const cleanId = String(orderId).replace(/^07\//, '').trim();
+      const allOrdersList = (window.orders || []).concat(window.archivedOrders || []);
+      const order = allOrdersList.find(o => {
+        const oId = String(o.id || '').replace(/^07\//, '').trim();
+        return oId === cleanId || String(o.id) === String(orderId);
+      });
 
-  try {
-    const res = await fetch(`${API_URL}?key=${SYSTEM_KEY}&pdfOrderId=${encodeURIComponent(orderId)}`);
-    const data = await res.json();
-    const doc = data.doc || data;
-    const rawItems = doc.items || doc.item_list || (doc.data && (doc.data.item_list || doc.data.items)) || [];
+      // 3. בדיקה אם כבר שמור ב-order.items
+      if (order && Array.isArray(order.items) && order.items.length > 0) {
+        if (loader) loader.classList.add('hidden');
+        renderOrderItems(orderId, order.items);
+        return;
+      }
 
-    if (order) {
-      order.items = rawItems;
-      order.cachedItems = doc;
+      // 4. שליפה ישירה מתוך cachedItems (עמודה O מהשרת)
+      if (order && order.cachedItems) {
+        let raw = order.cachedItems;
+        if (typeof raw === 'string') {
+          try { raw = JSON.parse(raw); } catch (e) { raw = null; }
+        }
+
+        // בדיקת כל הווריאציות: doc.items / items / doc.item_list
+        const items = (raw && raw.doc && (raw.doc.items || raw.doc.item_list))
+          || (raw && (raw.items || raw.item_list))
+          || (Array.isArray(raw) ? raw : null);
+
+        if (Array.isArray(items) && items.length > 0) {
+          order.items = items;
+          if (loader) loader.classList.add('hidden');
+          renderOrderItems(orderId, items);
+          return; // הוצג מיד ב-0 שניות! שום קריאת רשת לא יוצאת
+        }
+      }
+
+      // 5. בדיקה במטמון מקומי localStorage
+      const cacheKey = `order_items_${orderId}`;
+      const localRaw = localStorage.getItem(cacheKey);
+      if (localRaw) {
+        try {
+          const parsed = JSON.parse(localRaw);
+          const localItems = parsed.data || parsed.items || (Array.isArray(parsed) ? parsed : null);
+          if (Array.isArray(localItems) && localItems.length > 0) {
+            if (order) order.items = localItems;
+            if (loader) loader.classList.add('hidden');
+            renderOrderItems(orderId, localItems);
+            return; // הוצג מיד ב-0 שניות!
+          }
+        } catch (e) { }
+      }
+
+      // 6. רשת ביטחון בלבד - רק אם אין נתונים באף מטמון
+      if (loader) loader.classList.remove('hidden');
+      if (content) content.innerHTML = '<div class="text-center py-2 text-slate-400">טוען נתונים מרווחית...</div>';
+
+      try {
+        const res = await fetch(`${API_URL}?key=${SYSTEM_KEY}&pdfOrderId=${encodeURIComponent(orderId)}`);
+        const data = await res.json();
+        const doc = data.doc || data;
+        const rawItems = doc.items || doc.item_list || (doc.data && (doc.data.item_list || doc.data.items)) || [];
+
+        if (order) {
+          order.items = rawItems;
+          order.cachedItems = doc;
+        }
+
+        renderOrderItems(orderId, rawItems);
+
+        localStorage.setItem(cacheKey, JSON.stringify({
+          data: rawItems,
+          expiresAt: Date.now() + (60 * 24 * 60 * 60 * 1000)
+        }));
+      } catch (err) {
+        if (content) content.innerHTML = '<div class="text-rose-500 text-[11px]">שגיאה בטעינת הפריטים</div>';
+      } finally {
+        if (loader) loader.classList.add('hidden');
+      }
     }
-
-    renderOrderItems(orderId, rawItems);
-
-    localStorage.setItem(cacheKey, JSON.stringify({
-      data: rawItems,
-      expiresAt: Date.now() + (60 * 24 * 60 * 60 * 1000)
-    }));
-  } catch (err) {
-    if (content) content.innerHTML = '<div class="text-rose-500 text-[11px]">שגיאה בטעינת הפריטים</div>';
-  } finally {
-    if (loader) loader.classList.add('hidden');
-  }
-}
 
     // פונקציית מפתח זהה לחלוטין לזו של המחסן
     function getItemKey(item, idx) {
