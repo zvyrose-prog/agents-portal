@@ -543,50 +543,79 @@
     }
 
     function renderDeliveryBadge(deliveryInfoStr) {
-      if (!deliveryInfoStr) return '';
+  if (!deliveryInfoStr) return '';
 
-      let info = null;
-      try {
-        info = typeof deliveryInfoStr === 'object' ? deliveryInfoStr : JSON.parse(deliveryInfoStr);
-      } catch (e) {
-        return `<span class="text-[11px] text-slate-500">${deliveryInfoStr}</span>`;
-      }
+  let info = null;
+  let rawText = String(deliveryInfoStr).trim();
 
-      if (!info || !info.statusText) {
-        return `<span class="text-[11px] text-slate-500">${deliveryInfoStr}</span>`;
-      }
+  // 1. ניסיון פיענוח אם מדובר ב-JSON
+  try {
+    info = typeof deliveryInfoStr === 'object' ? deliveryInfoStr : JSON.parse(deliveryInfoStr);
+  } catch (e) {
+    info = null;
+  }
 
-      let colorClasses = 'bg-slate-100 text-slate-700 border-slate-300';
-      let icon = '📦';
-
-      if (info.statusText.includes('בדרך') || info.statusText.includes('בחלוקה')) {
-        colorClasses = 'bg-blue-100 text-blue-800 border-blue-300 animate-pulse';
-        icon = '🚚';
-      } else if (info.statusText.includes('נמסר')) {
-        colorClasses = 'bg-emerald-100 text-emerald-800 border-emerald-300';
-        icon = '✅';
-      } else if (info.statusText.includes('שובץ')) {
-        colorClasses = 'bg-purple-100 text-purple-800 border-purple-300';
-        icon = '📋';
-      } else if (info.statusText.includes('מרלוג')) {
-        colorClasses = 'bg-amber-100 text-amber-800 border-amber-300';
-        icon = '🏬';
-      } else if (info.statusText.includes('נכשל') || info.statusText.includes('בוטל')) {
-        colorClasses = 'bg-rose-100 text-rose-800 border-rose-300';
-        icon = '⚠️';
-      }
-
-      const trackingLinkHtml = info.trackingUrl
-        ? `<a href="${info.trackingUrl}" target="_blank" class="underline ml-1 font-bold hover:text-blue-600">מעקב</a>`
-        : '';
+  // 2. טיפול במחרוזת טקסט רגילה (כמו: "אופן אספקה: דבסט | משימה: ... | מעקב: https://...")
+  if (!info || !info.statusText) {
+    // בדיקה האם יש קישור בתוך הטקסט
+    const urlMatch = rawText.match(/(https?:\/\/[^\s]+)/);
+    if (urlMatch) {
+      const url = urlMatch[1];
+      // ננקה את הקישור עצמו מהטקסט כדי להציג אותו ככפתור מסודר
+      const cleanText = rawText.replace(urlMatch[0], '').replace(/\|\s*מעקב:\s*$/, '').trim();
 
       return `
-    <div class="inline-flex items-center gap-1.5 px-2 py-0.5 rounded-md border text-[10px] font-bold ${colorClasses}">
+        <div class="inline-flex items-center gap-1.5 px-2 py-0.5 rounded-md border text-[11px] font-bold bg-slate-100 text-slate-700 border-slate-300">
+          <span>📦 ${cleanText}</span>
+          <a href="${url}" target="_blank" onclick="event.stopPropagation()" 
+             class="inline-flex items-center gap-0.5 mr-1.5 px-1.5 py-0.5 rounded bg-blue-600 hover:bg-blue-700 text-white font-bold text-[10px] shadow-xs transition-colors cursor-pointer no-underline">
+             <span>מעקב</span>
+             <span class="text-[9px]">↗</span>
+          </a>
+        </div>
+      `;
+    }
+
+    // אם אין קישור כלל
+    return `<span class="text-xs text-slate-500 font-medium">${rawText}</span>`;
+  }
+
+  // 3. טיפול באובייקט JSON תקני של LionWheel
+  let colorClasses = 'bg-slate-100 text-slate-700 border-slate-300';
+  let icon = '📦';
+
+  if (info.statusText.includes('בדרך') || info.statusText.includes('בחלוקה')) {
+    colorClasses = 'bg-blue-100 text-blue-800 border-blue-300 animate-pulse';
+    icon = '🚚';
+  } else if (info.statusText.includes('נמסר')) {
+    colorClasses = 'bg-emerald-100 text-emerald-800 border-emerald-300';
+    icon = '✅';
+  } else if (info.statusText.includes('שובץ')) {
+    colorClasses = 'bg-purple-100 text-purple-800 border-purple-300';
+    icon = '📋';
+  } else if (info.statusText.includes('מרלוג')) {
+    colorClasses = 'bg-amber-100 text-amber-800 border-amber-300';
+    icon = '🏬';
+  } else if (info.statusText.includes('נכשל') || info.statusText.includes('בוטל')) {
+    colorClasses = 'bg-rose-100 text-rose-800 border-rose-300';
+    icon = '⚠️';
+  }
+
+  const trackingLinkHtml = info.trackingUrl
+    ? `<a href="${info.trackingUrl}" target="_blank" onclick="event.stopPropagation()" 
+         class="inline-flex items-center gap-0.5 mr-1.5 px-1.5 py-0.5 rounded bg-blue-600 hover:bg-blue-700 text-white font-bold text-[10px] shadow-xs transition-colors cursor-pointer no-underline">
+         <span>מעקב</span>
+         <span class="text-[9px]">↗</span>
+       </a>`
+    : '';
+
+  return `
+    <div class="inline-flex items-center gap-1.5 px-2 py-0.5 rounded-md border text-[11px] font-bold ${colorClasses}">
       <span>${icon} ${info.company || 'משלוח'}: ${info.statusText}</span>
       ${trackingLinkHtml}
     </div>
   `;
-    }
+}
 
     function toggleComments(orderId) {
       const box = document.getElementById(`commentsBox-${orderId}`);
