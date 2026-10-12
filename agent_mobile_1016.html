@@ -312,10 +312,18 @@
         const data = await res.json();
         const allArchived = data.orders || [];
 
-        // סינון הזמנות ארכיון רק של הסוכן הנוכחי
+        // 1. סינון הזמנות ארכיון רק של הסוכן הנוכחי
         archivedOrders = allArchived.filter(o =>
           String(o.agentId || '').trim() === targetAgentId
         );
+
+        // 2. מיון: הכי חדש למעלה (לפי תאריך ארכוב, ואם אין - לפי תאריך יצירה)
+        archivedOrders.sort((a, b) => {
+          const timeA = new Date(a.archivedAt || a.updatedAt || a.createdAt || 0).getTime();
+          const timeB = new Date(b.archivedAt || b.updatedAt || b.createdAt || 0).getTime();
+          return timeB - timeA;
+        });
+
       } catch (err) {
         console.error('שגיאה בטעינת ארכיון:', err);
         archivedOrders = [];
