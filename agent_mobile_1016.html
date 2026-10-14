@@ -659,12 +659,17 @@
       if (currentModalOrderId && typeof markCommentsAsRead === 'function') {
         markCommentsAsRead(currentModalOrderId);
       }
+
+      // איפוס שדה הקלדת הערה חדשה במידה ונשאר טקסט שלא נשלח
+      var input = document.getElementById('modalNewCommentInput');
+      if (input) input.value = '';
+
       var modal = document.getElementById('agentOrderModal');
       if (modal) modal.classList.add('hidden');
       currentModalOrderId = null;
     }
 
-    // טעינת הערות לתוך המודאל (גרסה קומפקטית)
+    // טעינת הערות לתוך המודאל (גרסה קומפקטית ומפורטת)
     function loadModalComments(orderId, order) {
       var container = document.getElementById('modalCommentsList');
       if (!container) return;
@@ -679,16 +684,33 @@
       }
 
       if (lines.length === 0) {
-        container.innerHTML = '<div class="text-slate-400 italic text-[10px] py-0.5 text-center">אין הערות עבור הזמנה זו</div>';
+        container.innerHTML = '<div class="text-slate-400 italic text-[11px] py-1 text-center">אין הערות עבור הזמנה זו</div>';
         return;
       }
 
       container.innerHTML = lines.map(function (line) {
-        var text = typeof line === 'object' ? (line.text || line.comment || JSON.stringify(line)) : String(line);
-        return '<div class="p-1.5 rounded-lg bg-white border border-amber-200/70 text-slate-700 text-[11px] leading-relaxed">' +
-          text +
+        if (typeof line === 'object' && line !== null) {
+          var text = line.text || line.comment || '';
+          var author = line.author || '';
+          var time = line.time || '';
+          
+          return '<div class="p-2 rounded-lg bg-white border border-amber-200/80 shadow-xs mb-1.5 last:mb-0">' +
+            '<div class="flex items-center justify-between text-[10px] text-slate-400 font-medium mb-1 border-b border-slate-100 pb-0.5">' +
+              '<span class="text-amber-800 font-semibold">' + author + '</span>' +
+              '<span>' + time + '</span>' +
+            '</div>' +
+            '<div class="text-slate-700 text-[11px] leading-relaxed select-text whitespace-pre-wrap">' + text + '</div>' +
           '</div>';
+        }
+
+        // תמיכה בהערות טקסט ישנות / פשוטות
+        return '<div class="p-2 rounded-lg bg-white border border-amber-200/80 text-slate-700 text-[11px] leading-relaxed mb-1.5 last:mb-0 select-text whitespace-pre-wrap">' +
+          String(line) +
+        '</div>';
       }).join('');
+
+      // גלילה אוטומטית להערה האחרונה
+      container.scrollTop = container.scrollHeight;
     }
 
     // שליחת הערה חדשה מהמודאל למחסן
@@ -701,19 +723,6 @@
 
       if (typeof submitAgentComment === 'function') {
         await submitAgentComment(currentModalOrderId, newText);
-      } else if (typeof addCommentToOrder === 'function') {
-        await addCommentToOrder(currentModalOrderId, newText);
-      }
-
-      var allOrdersList = (window.orders || []).concat(window.archivedOrders || []);
-      var order = allOrdersList.find(function (o) { return String(o.id) === String(currentModalOrderId); });
-      if (order) {
-        if (Array.isArray(order.comments)) {
-          order.comments.push(newText);
-        } else {
-          order.comments = order.comments ? (order.comments + '\n' + newText) : newText;
-        }
-        loadModalComments(currentModalOrderId, order);
       }
     }
 
@@ -933,12 +942,17 @@
       }
     }
 
-    async function submitAgentComment(orderId) {
-      const input = document.getElementById(`commentInput-${orderId}`);
-      const text = input ? input.value.trim() : '';
-      if (!text) return;
+    async function submitAgentComment(orderId, text) {
+      if (!text || !text.trim() || !orderId) return;
+      text = text.trim();
 
-      const order = orders.find(o => String(o.id) === String(orderId));
+      const cleanId = String(orderId).replace(/^07\//, '').trim();
+      const order = (window.activeOrdersMap && (window.activeOrdersMap[orderId] || window.activeOrdersMap[cleanId]))
+        || (typeof orders !== 'undefined' ? orders.find(o => {
+            const oId = String(o.id || '').replace(/^07\//, '').trim();
+            return oId === cleanId || String(o.id) === String(orderId);
+          }) : null);
+
       if (!order) return;
 
       if (!Array.isArray(order.comments)) {
@@ -947,30 +961,39 @@
 
       const now = new Date();
       const timeStr = `${now.getHours()}:${String(now.getMinutes()).padStart(2, '0')} ${now.toLocaleDateString('he-IL')}`;
+      const agentDisplayName = (typeof currentAgent !== 'undefined' && currentAgent && currentAgent.name) 
+        ? currentAgent.name 
+        : (typeof targetAgentId !== 'undefined' ? targetAgentId : 'סוכן');
 
       const newComment = {
-        author: `סוכן (${currentAgent.name || targetAgentId})`,
+        author: `סוכן (${agentDisplayName})`,
         text: text,
         time: timeStr
       };
 
       order.comments.push(newComment);
-      input.value = '';
 
-      const listContainer = document.getElementById(`commentsList-${orderId}`);
-      if (listContainer) {
-        listContainer.innerHTML = renderOrderCommentsList(order.comments);
+      // עדכון מיידי של רשימת ההערות במודאל הפתוח
+      if (typeof loadModalComments === 'function') {
+        loadModalComments(orderId, order);
       }
-      renderList();
+
+      // סימון מיידי כנקרא כדי שהכרטיס לא ייצבע בצהוב
+      if (typeof markCommentsAsRead === 'function') {
+        markCommentsAsRead(orderId);
+      }
+
+      // ריענון הלוח אם יש צורך
+      if (typeof renderList === 'function') renderList();
 
       try {
         const payload = {
-          key: SYSTEM_KEY,
+          key: typeof SYSTEM_KEY !== 'undefined' ? SYSTEM_KEY : (typeof SYSTEM_SECRET_KEY !== 'undefined' ? SYSTEM_SECRET_KEY : 'Ladlite2026Secure!'),
           action: 'addComment',
           orderId: String(orderId),
           status: order.status,
-          agentName: order.agentName || currentAgent.name,
-          agentPhone: order.agentPhone || currentAgent.phone,
+          agentName: order.agentName || (currentAgent && currentAgent.name) || '',
+          agentPhone: order.agentPhone || (currentAgent && currentAgent.phone) || '',
           comments: order.comments,
           deliveryInfo: order.deliveryInfo || ''
         };
@@ -1203,6 +1226,38 @@
         document.getElementById('loginAgentId').value = id;
         document.getElementById('loginPassword').value = pass;
         handleLogin(new Event('submit'));
+      }
+    });
+
+    // האזנה לאירועי מודאל הסוכן (סגירה ב-Backdrop ושליחה ב-Enter)
+    window.addEventListener('DOMContentLoaded', () => {
+      const agentModal = document.getElementById('agentOrderModal');
+      if (agentModal) {
+        agentModal.addEventListener('click', function (e) {
+          if (e.target === this) {
+            closeAgentOrderModal();
+          }
+        });
+      }
+
+      const commentInput = document.getElementById('modalNewCommentInput');
+      if (commentInput) {
+        commentInput.addEventListener('keydown', function (e) {
+          if (e.key === 'Enter' && !e.shiftKey) {
+            e.preventDefault();
+            submitModalComment();
+          }
+        });
+      }
+    });
+
+    // סגירת מודאל בלחיצה על מקש Escape
+    window.addEventListener('keydown', function (e) {
+      if (e.key === 'Escape') {
+        const modal = document.getElementById('agentOrderModal');
+        if (modal && !modal.classList.contains('hidden')) {
+          closeAgentOrderModal();
+        }
       }
     });
 
