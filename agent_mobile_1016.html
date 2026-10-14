@@ -210,15 +210,43 @@
     }
 
     function markCommentsAsRead(orderId) {
-      const order = orders.find(o => String(o.id) === String(orderId));
+      const cleanId = String(orderId).replace(/^07\//, '').trim();
+      const order = (window.activeOrdersMap && (window.activeOrdersMap[orderId] || window.activeOrdersMap[cleanId]))
+        || (typeof orders !== 'undefined' ? orders.find(o => {
+          const oId = String(o.id || '').replace(/^07\//, '').trim();
+          return oId === cleanId || String(o.id) === String(orderId);
+        }) : null);
+
       if (!order) return;
+
       let currentCount = 0;
       if (Array.isArray(order.comments)) {
         currentCount = order.comments.length;
       } else if (typeof order.comments === 'string' && order.comments.trim() !== '') {
         currentCount = 1;
       }
+
       localStorage.setItem(`read_comments_agent_${orderId}`, currentCount);
+      localStorage.setItem(`read_comments_agent_${cleanId}`, currentCount);
+
+      // עדכון מיידי של מסגרת הכרטיס בלוח בלי להמתין לרענון
+      const cardEl = document.getElementById('order-card-' + orderId)
+        || document.getElementById('order-card-' + cleanId)
+        || document.querySelector(`[data-order-id="${orderId}"]`)
+        || document.querySelector(`[data-order-id="${cleanId}"]`);
+
+      if (cardEl) {
+        cardEl.classList.remove('border-amber-400', 'border-amber-500', 'border-rose-500', 'ring-2', 'ring-amber-400', 'animate-pulse');
+
+        const rawStatus = String(order.status || '').toLowerCase().trim();
+        const stInfo = STATUS_MAP[rawStatus] || STATUS_MAP[order.status] || { border: 'border-slate-200' };
+        if (stInfo.border) {
+          cardEl.classList.add(stInfo.border);
+        }
+
+        const badge = cardEl.querySelector('.unread-badge, .new-comment-indicator, .unread-comment-badge');
+        if (badge) badge.remove();
+      }
     }
 
     // אימות כניסה מאובטח מול השרת
@@ -544,9 +572,9 @@
       if (custEl) custEl.textContent = order.clientName || order.customer || order.name || 'לקוח ללא שם';
       if (statusBadge) {
         var rawStatus = String(order.status || '').toLowerCase().trim();
-        var stInfo = STATUS_MAP[rawStatus] || STATUS_MAP[order.status] || { 
-          title: order.status || 'פתוח', 
-          badgeBg: 'bg-slate-200 text-slate-700' 
+        var stInfo = STATUS_MAP[rawStatus] || STATUS_MAP[order.status] || {
+          title: order.status || 'פתוח',
+          badgeBg: 'bg-slate-200 text-slate-700'
         };
         statusBadge.innerHTML = '<span class="px-2.5 py-1 rounded-lg text-[11px] font-bold shadow-xs ' + stInfo.badgeBg + '">' + stInfo.title + '</span>';
       }
@@ -628,6 +656,9 @@
 
     // סגירת מודאל ההזמנה
     function closeAgentOrderModal() {
+      if (currentModalOrderId && typeof markCommentsAsRead === 'function') {
+        markCommentsAsRead(currentModalOrderId);
+      }
       var modal = document.getElementById('agentOrderModal');
       if (modal) modal.classList.add('hidden');
       currentModalOrderId = null;
