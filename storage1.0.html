@@ -1,0 +1,3286 @@
+<!DOCTYPE html>
+<html lang="he" dir="rtl">
+
+<head>
+  <meta charset="UTF-8">
+  <meta name="viewport" content="width=device-width, initial-scale=1.0">
+
+  <!-- הגדרות להתקנה כאפליקציה למסך הבית (PWA) -->
+  <meta name="mobile-web-app-capable" content="yes">
+  <meta name="apple-mobile-web-app-capable" content="yes">
+  <meta name="apple-mobile-web-app-status-bar-style" content="default">
+  <meta name="apple-mobile-web-app-title" content="מחסן">
+  <meta name="theme-color" content="#2563eb">
+  <link rel="apple-touch-icon" href="https://cdn-icons-png.flaticon.com/512/2897/2897785.png">
+  <link rel="manifest"
+    href='data:application/manifest+json,{"name":"ניהול תור עבודה - מחסן","short_name":"מחסן","start_url":"./storage1.0.html","display":"standalone","background_color":"%23ffffff","theme_color":"%232563eb","orientation":"any","icons":[{"src":"https://cdn-icons-png.flaticon.com/512/2897/2897785.png","sizes":"512x512","type":"image/png"}]}'>
+  <title>מערכת ניהול מחסן חכמה</title>
+  <!-- Tailwind CSS לעיצוב נקי ומודרני -->
+  <script src="https://cdn.tailwindcss.com"></script>
+  <style>
+    body {
+      font-family: system-ui, -apple-system, BlinkMacSystemFont, 'Segoe UI', Roboto, sans-serif;
+      background-color: #f8fafc;
+    }
+
+    .custom-scrollbar::-webkit-scrollbar {
+      width: 6px;
+    }
+
+    .custom-scrollbar::-webkit-scrollbar-thumb {
+      background-color: #cbd5e1;
+      border-radius: 9999px;
+    }
+
+    .order-card:hover {
+      z-index: 50 !important;
+    }
+
+    .order-card:hover~.order-card {
+      transform: translateY(140px);
+    }
+  </style>
+</head>
+
+<body class="h-screen flex flex-col overflow-hidden text-slate-800">
+
+  <!-- מסך נעילה וכניסה מאובטחת למחסן -->
+  <div id="warehouseLockScreen" class="fixed inset-0 bg-slate-900 z-[9999] flex items-center justify-center p-4">
+    <div class="bg-white rounded-2xl shadow-2xl max-w-sm w-full p-6 text-right" dir="rtl">
+      <div
+        class="w-16 h-16 bg-blue-100 text-blue-600 rounded-full flex items-center justify-center mx-auto mb-4 text-2xl shadow-inner">
+        🔒
+      </div>
+      <h2 class="text-xl font-bold text-gray-800 mb-1 text-center">פורטל ניהול מחסן</h2>
+      <p class="text-xs text-gray-500 mb-5 text-center">גישה מורשית לצוות המחסן בלבד</p>
+
+      <form id="warehouseLoginForm" onsubmit="handleWarehouseLogin(event)" class="space-y-3">
+        <div>
+          <label class="block text-xs font-semibold text-gray-700 mb-1">מספר זיהוי:</label>
+          <input type="text" id="warehouseUserInput" placeholder="הזן מזהה (לדוגמה: 1311)" required autofocus
+            class="w-full border border-gray-300 rounded-xl px-3 py-2 text-sm outline-none focus:ring-2 focus:ring-blue-500 transition">
+        </div>
+
+        <div>
+          <label class="block text-xs font-semibold text-gray-700 mb-1">סיסמה:</label>
+          <input type="password" id="warehousePassInput" placeholder="הזן סיסמה" required
+            class="w-full border border-gray-300 rounded-xl px-3 py-2 text-sm outline-none focus:ring-2 focus:ring-blue-500 transition">
+        </div>
+
+        <p id="warehouseLoginError" class="text-xs text-red-500 hidden font-semibold text-center mt-2"></p>
+
+        <button type="submit" id="warehouseLoginBtn"
+          class="w-full mt-3 py-2.5 bg-blue-600 hover:bg-blue-700 text-white font-semibold text-sm rounded-xl transition shadow-md">
+          כניסה למערכת
+        </button>
+      </form>
+    </div>
+  </div>
+
+  <!-- סרגל עליון -->
+  <header class="bg-white border-b border-slate-200 px-6 py-3 flex items-center justify-between shadow-sm shrink-0">
+    <div class="flex items-center gap-3">
+      <div
+        class="w-9 h-9 bg-blue-600 rounded-xl flex items-center justify-center text-white font-bold text-lg shadow-inner">
+        📦
+      </div>
+      <div>
+        <h1 class="text-lg font-bold leading-tight">ניהול תור עבודה - מחסן</h1>
+        <p class="text-xs text-slate-500">תעדוף לפי ותק מסמך (FIFO)</p>
+      </div>
+    </div>
+
+    <!-- כפתור הוספת הזמנה ידנית מהירה -->
+    <button onclick="openNewOrderModal()"
+      class="bg-emerald-600 hover:bg-emerald-900 text-white font-medium text-sm px-4 py-2 rounded-xl shadow-sm transition flex items-center gap-2">
+      <span class="text-base font-bold">+</span>
+      <span>הזמנה חדשה</span>
+    </button>
+    <button id="btnManualSync" onclick="manualSync()"
+      class="bg-blue-600 hover:bg-blue-300 text-white font-medium text-sm px-4 py-2 rounded-xl shadow-sm transition flex items-center gap-2">
+      <span id="syncIcon" class="text-sm">⟳</span>
+      <span>רענון</span>
+    </button>
+    <!-- כפתור פתיחת ארכיון -->
+    <button onclick="openArchiveModal()"
+      class="bg-yellow-300 hover:bg-yellow-400 text-slate-700 font-medium text-sm px-4 py-2 rounded-xl shadow-sm transition flex items-center gap-2"
+      title="צפייה בארכיון">
+      <span>📦</span>
+      <span>ארכיון</span>
+    </button>
+    <button onclick="openSettingsModal()"
+      class="bg-slate-900 hover:bg-slate-200 text-slate-700 p-2 rounded-xl shadow-sm transition flex items-center justify-center"
+      title="הגדרות מערכת">
+      <span class="text-base">⚙️</span>
+    </button>
+  </header>
+
+  <!-- לוח הטורים (Kanban) -->
+  <main id="board"
+    class="flex-1 flex gap-2 p-2 md:gap-3 md:p-4 overflow-x-auto overflow-y-hidden snap-x snap-mandatory">
+    <!-- הטורים נוצרים דינמית ע"י JavaScript -->
+  </main>
+
+  <!-- מודאל לצפייה בהזמנה + הערות -->
+  <div id="orderModal" onclick="if (event.target === this) closeModal();"
+    class="fixed inset-0 bg-slate-900/60 backdrop-blur-sm z-[60] hidden flex items-center justify-center p-0 md:p-4">
+    <div
+      class="bg-white w-full h-full md:h-[85vh] md:max-w-7xl md:rounded-2xl shadow-2xl flex flex-col overflow-hidden animate-in fade-in zoom-in duration-150">
+
+      <!-- כותרת המודאל -->
+      <div
+        class="px-3 py-3 md:px-6 md:py-4 border-b border-slate-200 flex justify-between items-center bg-slate-50 shrink-0">
+        <div class="min-w-0 pr-1">
+          <div class="flex flex-wrap items-center gap-1.5 md:gap-2">
+            <h3 id="modalOrderTitle" class="text-base md:text-lg font-bold text-slate-800 truncate"></h3>
+          </div>
+
+          <!-- שורת תגי המידע בראש המודאל -->
+          <div class="flex flex-wrap items-center gap-2 mt-1.5 text-xs">
+            <span id="modalOrderSubtitle" class="text-slate-500 font-medium"></span>
+            <span id="modalSuppliedBy" class="bg-slate-200 text-slate-700 px-2 py-0.5 rounded font-medium"></span>
+            <span id="modalPackages"
+              class="bg-blue-50 text-blue-700 px-2 py-0.5 rounded font-medium border border-blue-100"></span>
+            <span id="modalLinkedBadge"></span>
+            <span id="modalArchiveDate"
+              class="hidden bg-emerald-50 text-emerald-700 px-2 py-0.5 rounded font-medium border border-emerald-100"></span>
+          </div>
+        </div>
+
+        <div class="flex items-start gap-3">
+          <!-- עמודת פעולות: כפתור סוכן ולמטה תפריט שלבים -->
+          <div class="flex flex-col items-stretch gap-1.5 min-w-[150px]">
+            <!-- כפתור פנייה לסוכן (למעלה) -->
+            <div id="modalAgentActionContainer"></div>
+            <!-- תפריט שינוי שלב (מתחתיו) -->
+            <div id="modalStatusSelectContainer"></div>
+          </div>
+
+          <!-- כפתור סגירת מודאל -->
+          <button onclick="closeModal()"
+            class="text-slate-400 hover:text-slate-600 text-2xl font-bold p-1 leading-none cursor-pointer">&times;</button>
+        </div>
+      </div>
+
+      <!-- תוכן המודאל: תמונה והערות -->
+      <div class="flex-1 flex flex-col md:flex-row overflow-y-auto md:overflow-hidden">
+        <!-- אזור תמונת המסמך -->
+        <div
+          class="flex-1 min-h-[55vh] md:min-h-0 bg-slate-100 p-2 md:p-4 flex items-center justify-center overflow-auto border-b md:border-b-0 md:border-l border-slate-200">
+          <div id="modalDocContainer"
+            class="w-full h-full flex items-center justify-center bg-white rounded-lg shadow-inner overflow-hidden">
+            <span class="text-xs text-slate-400 font-medium">בחר הזמנה להצגת המסמך</span>
+          </div>
+        </div>
+
+        <!-- אזור ניהול ההערות -->
+        <div class="w-full md:w-80 flex flex-col bg-white">
+          <div class="p-3 border-b border-slate-100 font-semibold text-sm text-slate-700 flex items-center gap-1.5">
+            <span>💬</span> הערות על המסמך
+          </div>
+
+          <!-- רשימת הערות -->
+          <div id="modalCommentsList" class="flex-1 p-4 space-y-3 overflow-y-auto custom-scrollbar">
+            <!-- הערות יתווספו לכאן -->
+          </div>
+
+          <!-- הזנת הערה חדשה -->
+          <div class="p-3 border-t border-slate-200 bg-slate-50">
+            <textarea id="newCommentInput" rows="2" placeholder="הקלד הערה..."
+              class="w-full text-sm p-2 rounded-lg border border-slate-300 focus:outline-none focus:ring-2 focus:ring-blue-500 resize-none"></textarea>
+            <button onclick="handleAddComment()"
+              class="mt-2 w-full bg-blue-600 hover:bg-blue-700 text-white font-medium text-xs py-2 rounded-lg transition">
+              הוסף הערה
+            </button>
+          </div>
+        </div>
+      </div>
+
+    </div>
+  </div>
+
+  <!-- מודאל העברה לחיוב: כמות חבילות והזמנות מקושרות -->
+  <div id="readyForBillingModal"
+    class="hidden fixed inset-0 bg-slate-900/60 backdrop-blur-xs z-[70] flex items-center justify-center p-4">
+    <div class="bg-white rounded-xl shadow-2xl max-w-md w-full overflow-hidden border border-slate-200">
+      <div class="px-5 py-4 bg-emerald-50 border-b border-emerald-100 flex items-center justify-between">
+        <div class="flex items-center gap-2">
+          <span class="text-xl">💳</span>
+          <h3 class="font-bold text-slate-800 text-base" id="billingModalTitle">העברה לחיוב</h3>
+        </div>
+        <button type="button" onclick="closeBillingModal()"
+          class="text-slate-400 hover:text-slate-600 font-bold text-xl leading-none">&times;</button>
+      </div>
+
+      <div class="p-5 space-y-4">
+        <!-- כמות חבילות -->
+        <div>
+          <label class="block text-xs font-bold text-slate-700 mb-1.5">כמה חבילות יצאו מהזמנה זו?</label>
+          <div class="flex items-center gap-3">
+            <button type="button" onclick="adjustBillingPackages(-1)"
+              class="w-9 h-9 flex items-center justify-center rounded-lg bg-slate-100 hover:bg-slate-200 text-slate-700 font-bold text-lg transition active:scale-95">-</button>
+            <input type="number" id="billingPackagesInput" min="1" value="1"
+              class="w-20 text-center font-bold text-lg border border-slate-300 rounded-lg py-1 focus:ring-2 focus:ring-emerald-500 outline-none">
+            <button type="button" onclick="adjustBillingPackages(1)"
+              class="w-9 h-9 flex items-center justify-center rounded-lg bg-slate-100 hover:bg-slate-200 text-slate-700 font-bold text-lg transition active:scale-95">+</button>
+          </div>
+        </div>
+
+        <!-- הזמנות פתוחות של אותו לקוח לקישור -->
+        <div class="border-t border-slate-100 pt-3">
+          <label class="block text-xs font-bold text-slate-700 mb-1">הזמנות פתוחות נוספות של הלקוח:</label>
+          <p class="text-[11px] text-slate-500 mb-2">סימון הזמנה יקשר אותה להזמנה זו ויעביר גם אותה לסטטוס "מוכן לחיוב"
+          </p>
+          <div id="billingOpenOrdersList"
+            class="max-h-44 overflow-y-auto space-y-1.5 p-2 bg-slate-50 rounded-lg border border-slate-200">
+            <!-- מוזן דינמית -->
+          </div>
+        </div>
+      </div>
+
+      <div class="px-5 py-3 bg-slate-50 border-t border-slate-100 flex items-center justify-end gap-2">
+        <button type="button" onclick="closeBillingModal()"
+          class="px-3 py-1.5 text-xs font-medium text-slate-600 hover:bg-slate-200 rounded-lg transition">ביטול</button>
+        <button type="button" onclick="confirmBillingModal()"
+          class="px-4 py-1.5 text-xs font-bold bg-emerald-600 hover:bg-emerald-700 text-white rounded-lg transition shadow-sm">אישור
+          והעברה לחיוב</button>
+      </div>
+    </div>
+  </div>
+
+  <!-- מודאל הגדרות מערכת -->
+  <div id="settingsModal"
+    class="fixed inset-0 bg-slate-900/40 backdrop-blur-sm z-50 hidden flex items-center justify-center p-4">
+    <div class="bg-white rounded-2xl shadow-xl max-w-md w-full p-6 text-right" dir="rtl">
+      <div class="flex justify-between items-center pb-3 border-b border-slate-100 mb-4">
+        <h3 class="text-base font-bold text-slate-800 flex items-center gap-2">
+          <span>⚙️</span> הגדרות מערכת ואבטחה
+        </h3>
+        <button onclick="closeSettingsModal()"
+          class="text-slate-400 hover:text-slate-600 text-lg font-bold">&times;</button>
+      </div>
+
+      <div class="space-y-4">
+        <div>
+          <label class="block text-xs font-semibold text-slate-600 mb-1">טוקן API רווחית (Rivhit Token):</label>
+          <input type="password" id="inputRivhitToken" placeholder="הזן טוקן חדש לעדכון..."
+            class="w-full text-xs p-2.5 border border-slate-200 rounded-lg focus:outline-none focus:ring-2 focus:ring-blue-500 font-mono" />
+          <p id="tokenStatusText" class="text-[11px] text-slate-400 mt-1">בודק מצב מול השרת...</p>
+        </div>
+
+        <div class="p-3 bg-blue-50 border border-blue-100 rounded-lg text-[11px] text-blue-800 leading-relaxed">
+          🔒 הטוקן נשמר מוצפן בשרת גוגל. אינו חשוף בקוד ואינו נשמר בגיליון.
+        </div>
+
+        <div class="flex justify-end gap-2 pt-2">
+          <button onclick="closeSettingsModal()"
+            class="px-4 py-2 text-xs font-medium text-slate-600 hover:bg-slate-100 rounded-lg transition">ביטול</button>
+          <button id="btnSaveSettings" onclick="saveSettings()"
+            class="px-4 py-2 text-xs font-bold text-white bg-blue-600 hover:bg-blue-700 rounded-lg shadow-sm transition">שמור
+            הגדרות</button>
+        </div>
+      </div>
+    </div>
+  </div>
+
+  <!-- מודאל ארכיון הזמנות -->
+  <div id="archiveModal"
+    class="fixed inset-0 bg-slate-900/50 backdrop-blur-sm z-50 hidden flex items-center justify-center p-4">
+    <div class="bg-white rounded-2xl shadow-2xl max-w-4xl w-full max-h-[90vh] flex flex-col overflow-hidden text-right"
+      dir="rtl">
+
+      <!-- כותרת וסגירה -->
+      <div class="flex justify-between items-center px-6 py-4 border-b border-slate-100 bg-slate-50">
+        <div class="flex items-center gap-2">
+          <span class="text-xl">📦</span>
+          <h3 class="text-lg font-bold text-slate-800">ארכיון הזמנות</h3>
+        </div>
+        <button onclick="closeArchiveModal()"
+          class="text-slate-400 hover:text-slate-600 text-2xl font-bold leading-none">&times;</button>
+      </div>
+
+      <!-- סרגל סינון ומיון -->
+      <div class="p-4 border-b border-slate-100 bg-white flex flex-wrap items-center justify-between gap-3">
+        <!-- חיפוש טקסטואלי -->
+        <div class="relative flex-1 min-w-[240px]">
+          <input type="text" id="archiveSearchInput" oninput="renderArchiveList()"
+            placeholder="חיפוש לפי שם לקוח, מספר הזמנה או תאריך..."
+            class="w-full text-xs p-2.5 pr-8 border border-slate-200 rounded-xl focus:outline-none focus:ring-2 focus:ring-blue-500 bg-slate-50/50" />
+          <span class="absolute right-2.5 top-2.5 text-slate-400 text-xs">🔍</span>
+        </div>
+
+        <!-- מיון לפי סכום -->
+        <div class="flex items-center gap-2">
+          <label class="text-xs text-slate-500 font-medium whitespace-nowrap">מיין לפי סכום:</label>
+          <select id="archiveSortSelect" onchange="renderArchiveList()"
+            class="text-xs p-2 border border-slate-200 rounded-xl focus:outline-none focus:ring-2 focus:ring-blue-500 bg-white">
+            <option value="none">לפי תאריך (ברירת מחדל)</option>
+            <option value="amount-desc">סכום: מהגבוה לנמוך ↓</option>
+            <option value="amount-asc">סכום: מהנמוך לגבוה ↑</option>
+          </select>
+        </div>
+      </div>
+
+      <!-- רשימת ההזמנות בארכיון -->
+      <div id="archiveListContainer"
+        class="flex-1 overflow-y-auto p-4 space-y-2 bg-slate-50/60 divide-y divide-slate-100">
+        <!-- שורות ההזמנות ייטענו כאן דינמית -->
+      </div>
+
+    </div>
+  </div>
+
+  <!-- מודאל בחירת אופן אספקה לפני העברה לארכיון -->
+  <div id="deliveryPromptModal"
+    class="fixed inset-0 bg-black/60 z-[70] hidden flex items-center justify-center p-4 backdrop-blur-xs">
+    <div class="bg-white rounded-2xl shadow-2xl max-w-md w-full p-6 text-right" dir="rtl">
+      <div class="flex items-center justify-between border-b pb-3 mb-4">
+        <h3 class="text-lg font-bold text-gray-800">📦 כיצד סופקה ההזמנה?</h3>
+        <button onclick="closeDeliveryModal()"
+          class="text-gray-400 hover:text-gray-600 text-2xl font-bold leading-none">&times;</button>
+      </div>
+
+      <p class="text-xs text-gray-500 mb-3">המידע יירשם בהערות ההזמנה ויישמר בארכיון.</p>
+
+      <div class="space-y-3">
+        <!-- תפריט בחירה -->
+        <div>
+          <label class="block text-xs font-semibold text-gray-700 mb-1">אופן אספקה:</label>
+          <select id="deliverySelect"
+            class="w-full border border-gray-300 rounded-lg p-2 text-sm bg-gray-50 focus:ring-2 focus:ring-blue-500 outline-none">
+            <!-- נטען דינמית -->
+          </select>
+        </div>
+
+        <!-- הוספת אופציה מהירה תוך כדי תנועה -->
+        <div class="flex gap-2">
+          <input type="text" id="newDeliveryOptionInput" placeholder="הוסף אפשרות לרשימה..."
+            class="flex-1 border border-gray-300 rounded-lg p-2 text-xs outline-none focus:ring-1 focus:ring-blue-500">
+          <button type="button" onclick="addQuickDeliveryOption()"
+            class="bg-gray-100 hover:bg-gray-200 text-gray-700 text-xs px-3 py-2 rounded-lg font-medium transition border border-gray-300">
+            + הוסף
+          </button>
+        </div>
+
+        <!-- מלל חופשי נוסף -->
+        <div>
+          <label class="block text-xs font-semibold text-gray-700 mb-1">מלל חופשי / הערה נוספת (אופציונלי):</label>
+          <input type="text" id="deliveryCustomNotes" placeholder="לדוגמה: מספר תעודת משלוח, שם נהג וכו'"
+            class="w-full border border-gray-300 rounded-lg p-2 text-xs outline-none focus:ring-1 focus:ring-blue-500">
+        </div>
+      </div>
+
+      <!-- כפתורי פעולה -->
+      <div class="flex justify-end gap-2 mt-5 pt-3 border-t">
+        <button type="button" onclick="closeDeliveryModal()"
+          class="px-4 py-2 text-xs text-gray-600 hover:bg-gray-100 rounded-lg">ביטול</button>
+        <button type="button" onclick="confirmArchiveWithDelivery()"
+          class="px-5 py-2 text-xs font-semibold bg-blue-600 text-white hover:bg-blue-700 rounded-lg transition shadow">
+          אישור והעברה לארכיון
+        </button>
+      </div>
+    </div>
+  </div>
+
+  <!-- מודאל הזנת נמען חדש ל-LionWheel -->
+  <div id="newLionWheelClientModal"
+    class="fixed inset-0 bg-black/60 z-[80] hidden flex items-center justify-center p-4 backdrop-blur-xs">
+    <div class="bg-white rounded-2xl shadow-2xl max-w-lg w-full p-6 text-right" dir="rtl">
+      <div class="flex items-center justify-between border-b pb-3 mb-4">
+        <h3 class="text-lg font-bold text-gray-800">🚚 פרטי נמען חדש למשלוח (LionWheel)</h3>
+        <button type="button" onclick="closeNewLionWheelClientModal()"
+          class="text-gray-400 hover:text-gray-600 text-2xl font-bold leading-none">&times;</button>
+      </div>
+
+      <form id="newLionWheelClientForm" onsubmit="handleNewClientDispatchSubmit(event)" class="space-y-3">
+        <div class="grid grid-cols-2 gap-2">
+          <div>
+            <label class="block text-xs font-semibold text-gray-700 mb-1">שם לקוח / עסק *</label>
+            <input type="text" id="nlw_name" required
+              class="w-full border border-gray-300 rounded-lg p-2 text-xs outline-none focus:ring-1 focus:ring-blue-500">
+          </div>
+          <div>
+            <label class="block text-xs font-semibold text-gray-700 mb-1">איש קשר</label>
+            <input type="text" id="nlw_contact"
+              class="w-full border border-gray-300 rounded-lg p-2 text-xs outline-none focus:ring-1 focus:ring-blue-500">
+          </div>
+        </div>
+
+        <div class="grid grid-cols-3 gap-2">
+          <div>
+            <label class="block text-xs font-semibold text-gray-700 mb-1">עיר *</label>
+            <input type="text" id="nlw_city" required
+              class="w-full border border-gray-300 rounded-lg p-2 text-xs outline-none focus:ring-1 focus:ring-blue-500">
+          </div>
+          <div>
+            <label class="block text-xs font-semibold text-gray-700 mb-1">רחוב *</label>
+            <input type="text" id="nlw_street" required
+              class="w-full border border-gray-300 rounded-lg p-2 text-xs outline-none focus:ring-1 focus:ring-blue-500">
+          </div>
+          <div>
+            <label class="block text-xs font-semibold text-gray-700 mb-1">מס' בית</label>
+            <input type="text" id="nlw_building"
+              class="w-full border border-gray-300 rounded-lg p-2 text-xs outline-none focus:ring-1 focus:ring-blue-500">
+          </div>
+        </div>
+
+        <div class="grid grid-cols-2 gap-2">
+          <div>
+            <label class="block text-xs font-semibold text-gray-700 mb-1">טלפון נייד *</label>
+            <input type="tel" id="nlw_phone" required
+              class="w-full border border-gray-300 rounded-lg p-2 text-xs outline-none focus:ring-1 focus:ring-blue-500">
+          </div>
+          <div>
+            <label class="block text-xs font-semibold text-gray-700 mb-1">קוד כניסה</label>
+            <input type="text" id="nlw_entryCode"
+              class="w-full border border-gray-300 rounded-lg p-2 text-xs outline-none focus:ring-1 focus:ring-blue-500">
+          </div>
+        </div>
+
+        <div>
+          <label class="block text-xs font-semibold text-gray-700 mb-1">הערות מיקום / הנחיות לשליח</label>
+          <input type="text" id="nlw_notes" placeholder="קומה, דירה, ליד מדרגות..."
+            class="w-full border border-gray-300 rounded-lg p-2 text-xs outline-none focus:ring-1 focus:ring-blue-500">
+        </div>
+
+        <!-- רובריקת שמירה בגיליון - ברירת מחדל מסומנת -->
+        <div class="pt-2 border-t border-gray-200">
+          <label
+            class="flex items-center gap-2 cursor-pointer select-none bg-blue-50/70 p-2.5 rounded-lg border border-blue-100">
+            <input type="checkbox" id="nlw_saveToSheet" checked class="w-4 h-4 text-blue-600 rounded">
+            <span class="text-xs font-bold text-blue-900">שמור לקוח זה במאגר הנמענים לפעמים הבאות</span>
+          </label>
+        </div>
+
+        <div class="flex justify-end gap-2 pt-3 border-t">
+          <button type="button" onclick="closeNewLionWheelClientModal()"
+            class="px-4 py-2 text-xs text-gray-600 hover:bg-gray-100 rounded-lg">ביטול</button>
+          <button type="submit" id="nlw_submitBtn"
+            class="px-5 py-2 text-xs font-semibold bg-blue-600 text-white hover:bg-blue-700 rounded-lg transition shadow">
+            המשך לשידור ומדבקה 🖨️
+          </button>
+        </div>
+      </form>
+    </div>
+  </div>
+
+  <!-- מודאל פרטי לקוח (ריווחית) -->
+  <div id="customerModal"
+    class="fixed inset-0 bg-slate-900/60 z-[80] hidden flex items-center justify-center p-4 backdrop-blur-xs" dir="rtl">
+    <div class="bg-white rounded-2xl max-w-sm w-full p-5 shadow-2xl border border-slate-200">
+      <div class="flex justify-between items-center pb-3 border-b border-slate-100 mb-3">
+        <h3 class="font-bold text-base text-slate-800 truncate" id="custModalTitle">פרטי לקוח</h3>
+        <button type="button" onclick="closeCustomerModal()"
+          class="text-slate-400 hover:text-slate-600 text-lg font-bold p-1 leading-none">&times;</button>
+      </div>
+
+      <div id="custModalLoading" class="text-center py-6 text-xs text-slate-500 hidden">
+        <span class="animate-spin inline-block mb-1 text-base">⟳</span> טוען נתונים מרווחית...
+      </div>
+
+      <div id="custModalContent" class="space-y-2 text-xs">
+        <div class="flex justify-between py-1 border-b border-slate-50">
+          <span class="text-slate-400">מספר לקוח:</span>
+          <span class="font-bold font-mono text-slate-700" id="custValId">—</span>
+        </div>
+        <div class="flex justify-between py-1 border-b border-slate-50">
+          <span class="text-slate-400">ח.פ / ת.ז:</span>
+          <span class="font-bold font-mono text-slate-700" id="custValVat">—</span>
+        </div>
+        <div class="flex justify-between py-1 border-b border-slate-50">
+          <span class="text-slate-400">כתובת:</span>
+          <span class="font-medium text-slate-800" id="custValAddress">—</span>
+        </div>
+        <div class="flex justify-between py-1 border-b border-slate-50">
+          <span class="text-slate-400">עיר:</span>
+          <span class="font-medium text-slate-800" id="custValCity">—</span>
+        </div>
+        <div class="flex justify-between py-1 pt-2">
+          <span class="text-slate-400">טלפון:</span>
+          <a href="#" id="custValPhoneLink" class="font-bold text-blue-600 hover:underline font-mono text-sm">—</a>
+        </div>
+      </div>
+    </div>
+  </div>
+
+  <!-- מודאל בחירת סניף LionWheel (להדביק כאן!) -->
+  <div id="lionWheelBranchModal"
+    class="fixed inset-0 bg-slate-900/60 z-[90] hidden flex items-center justify-center p-4 backdrop-blur-xs" dir="rtl">
+    <div class="bg-white rounded-2xl max-w-md w-full p-6 shadow-2xl border border-slate-200 text-right">
+      <div class="flex justify-between items-center pb-3 border-b border-slate-100 mb-3">
+        <h3 class="font-bold text-base text-slate-800">🏢 נמצאו מספר סניפים עבור הלקוח</h3>
+        <button type="button" onclick="closeBranchModal()"
+          class="text-slate-400 hover:text-slate-600 text-lg font-bold p-1 leading-none">&times;</button>
+      </div>
+
+      <p class="text-xs text-slate-500 mb-3">בחר לאיזה סניף לשלוח את המשימה בדבסט:</p>
+
+      <div id="lionWheelBranchList" class="space-y-2 max-h-60 overflow-y-auto mb-4 p-1">
+        <!-- אפשרויות הסניפים מוזרקות כאן דינמית -->
+      </div>
+
+      <div class="flex justify-end gap-2 pt-3 border-t border-slate-100">
+        <button type="button" onclick="closeBranchModal()"
+          class="px-4 py-2 text-xs text-slate-600 hover:bg-slate-100 rounded-lg">ביטול</button>
+        <button type="button" id="confirmBranchBtn" onclick="dispatchSelectedBranch()"
+          class="px-5 py-2 text-xs font-semibold bg-blue-600 text-white hover:bg-blue-700 rounded-lg transition shadow">
+          הוצא משלוח בדבסט
+        </button>
+      </div>
+    </div>
+  </div>
+
+  <script>
+    // 1. הגדרת 5 הטורים לפי הצבעים שבסקיצה
+    const COLUMNS = [
+      { id: 'new', title: 'הזמנה חדשה', border: 'border-pink-400', headerBg: 'bg-pink-50', badgeBg: 'bg-pink-500', textCol: 'text-pink-900' },
+      { id: 'picking', title: 'בליקוט', border: 'border-purple-400', headerBg: 'bg-purple-50', badgeBg: 'bg-purple-500', textCol: 'text-purple-900' },
+      { id: 'agent_wait', title: '💬 ממתין לסוכן', border: 'border-amber-500', headerBg: 'bg-amber-50', badgeBg: 'bg-amber-500', textCol: 'text-amber-900' },
+      { id: 'packing', title: 'במעבדה', border: 'border-sky-400', headerBg: 'bg-sky-50', badgeBg: 'bg-sky-500', textCol: 'text-sky-900' },
+      { id: 'ready', title: 'מוכן למשלוח', border: 'border-amber-400', headerBg: 'bg-amber-50', badgeBg: 'bg-amber-500', textCol: 'text-amber-900' },
+      { id: 'done', title: 'מוכן לחיוב', border: 'border-emerald-400', headerBg: 'bg-emerald-50', badgeBg: 'bg-emerald-500', textCol: 'text-emerald-900' }
+    ];
+
+    // 2. דאטה לדוגמה (בהמשך נמשוך מ-Google Sheets / רווחית)
+    // רשימת 10 הזמנות לדוגמה לבדיקות
+    const API_URL = 'https://script.google.com/macros/s/AKfycbymdqgDebBLvUaQjc4ZpKbaBXJdtWR_ePEcFcf8fjzxK6i2YSoWosjTCunXvu3xkU5v/exec';
+    const SYSTEM_KEY = 'Ladlite2026Secure!';
+
+    let orders = [];
+    let deliveryOptionsList = [];
+    let currentArchivingOrderId = null;
+
+    // מחזיק את חתימת המצב הקודמת בזיכרון
+    let lastBoardSignature = '';
+
+    function syncOrdersSmart(newOrders) {
+      if (!Array.isArray(newOrders)) return false;
+
+      // 1. יצירת חתימה קלה וקצרה של המצב הנוכחי:
+      // מורכבת מ: [מזהה הזמנה, סטטוס, כמות הערות]. 
+      // זו השוואת מחרוזת פשוטה שרצה בשבריר מילי-שנייה (O(N) שטוח).
+      const currentSignature = newOrders.map(o => {
+        const cCount = Array.isArray(o.comments) ? o.comments.length : (o.comments ? 1 : 0);
+        return `${o.id}:${o.status}:${cCount}`;
+      }).join('|');
+
+      // 2. בדיקה בסגנון React Memo: אם שום דבר לא השתנה - אל תיגע ב-DOM!
+      if (currentSignature === lastBoardSignature) {
+        return false; // אין שינוי, לא מציירים כלום
+      }
+
+      // 3. בדיקה האם נוספו הזמנות חדשות לחלוטין (לצורך התראה / צליל / סימון)
+      const previousIds = new Set(orders.map(o => String(o.id)));
+      const brandNewOrders = newOrders.filter(o => !previousIds.has(String(o.id)));
+
+      if (brandNewOrders.length > 0 && orders.length > 0) {
+        console.log(`התקבלו ${brandNewOrders.length} הזמנות חדשות!`);
+        // כאן אפשר להפעיל צפצוף קל או התראת דפדפן אם תרצה בעתיד
+      }
+
+      // 4. עדכון הנתונים והחתימה, והפעלת הרינדור רק פעם אחת
+      lastBoardSignature = currentSignature;
+      orders = newOrders;
+      renderBoard();
+
+      return true;
+    }
+
+    // שליפת אפשרויות אספקה מגיליון Settings
+    async function fetchDeliveryOptions() {
+      try {
+        const res = await fetch(`${API_URL}?key=${SYSTEM_KEY}&type=delivery_options`);
+        const data = await res.json();
+        if (data && Array.isArray(data.options) && data.options.length > 0) {
+          deliveryOptionsList = data.options;
+          renderDeliverySelect();
+        }
+      } catch (err) {
+        console.error('שגיאה בטעינת אפשרויות אספקה:', err);
+      }
+    }
+
+    // פונקציית עזר להזנת האפשרויות לתוך התפריט הנפתח
+    function renderDeliverySelect() {
+      const select = document.getElementById('deliverySelect');
+      if (!select) return;
+
+      select.innerHTML = '';
+      deliveryOptionsList.forEach(opt => {
+        const optionEl = document.createElement('option');
+        optionEl.value = opt;
+        optionEl.textContent = opt;
+        select.appendChild(optionEl);
+      });
+    }
+
+    // פתיחת מודאל בחירת אופן אספקה
+    function openDeliveryPrompt(orderId) {
+      markOrderForCacheExpiry(orderId);
+      currentArchivingOrderId = orderId;
+      populateDeliverySelect();
+
+      const customNotes = document.getElementById('deliveryCustomNotes');
+      const newOptionInput = document.getElementById('newDeliveryOptionInput');
+      if (customNotes) customNotes.value = '';
+      if (newOptionInput) newOptionInput.value = '';
+
+      const modal = document.getElementById('deliveryPromptModal');
+      if (modal) modal.classList.remove('hidden');
+    }
+
+    // סגירת המודאל
+    function closeDeliveryModal() {
+      const modal = document.getElementById('deliveryPromptModal');
+      if (modal) modal.classList.add('hidden');
+      currentArchivingOrderId = null;
+    }
+
+    // מילוי תפריט הבחירה מהרשימה
+    function populateDeliverySelect() {
+      const select = document.getElementById('deliverySelect');
+      if (!select) return;
+
+      if (deliveryOptionsList.length === 0) {
+        select.innerHTML = '<option value="לא צוין">אין אפשרויות מוגדרות</option>';
+        return;
+      }
+
+      select.innerHTML = deliveryOptionsList.map(opt => `<option value="${opt}">${opt}</option>`).join('');
+    }
+
+    let pendingLionWheelOrder = null;
+
+    // אישור אופן אספקה והעברה לארכיון
+    async function confirmArchiveWithDelivery() {
+      if (!currentArchivingOrderId) return;
+
+      const orderIdToArchive = currentArchivingOrderId;
+      const select = document.getElementById('deliverySelect');
+      const customNotes = document.getElementById('deliveryCustomNotes');
+
+      const selectedMethod = select ? select.value : 'לא צוין';
+      const notesText = customNotes ? customNotes.value.trim() : '';
+
+      closeDeliveryModal();
+
+      if (selectedMethod.includes('דבסט')) {
+        await handleDebestDeliveryFlow(orderIdToArchive, selectedMethod, notesText);
+        return;
+      }
+
+      finishArchivingOrder(orderIdToArchive, selectedMethod, notesText);
+    }
+
+    // בדיקת נמען מול הרשימה עבור דבסט / LionWheel
+    async function handleDebestDeliveryFlow(orderId, selectedMethod, notesText) {
+      const order = (window.activeOrdersMap && window.activeOrdersMap[orderId]) || (typeof orders !== 'undefined' ? orders : []).find(o => String(o.id) === String(orderId)) || {};
+      const clientName = order.clientName || order.customer || '';
+
+      try {
+        const payload = {
+          key: typeof SYSTEM_SECRET_KEY !== 'undefined' ? SYSTEM_SECRET_KEY : (typeof SYSTEM_KEY !== 'undefined' ? SYSTEM_KEY : 'Ladlite2026Secure!'),
+          action: 'findLionWheelBranches', // הפעולה בשרת שמאתרת נמענים בגיליון LionWheel_Clients
+          clientName: clientName
+        };
+        const res = await (await fetch(typeof API_URL !== 'undefined' ? API_URL : SCRIPT_URL, {
+          method: 'POST',
+          body: JSON.stringify(payload)
+        })).json();
+
+        if (!res.success) {
+          alert("שגיאה באיתור נמען: " + (res.error || 'לא ידועה'));
+          finishArchivingOrder(orderId, selectedMethod, notesText);
+          return;
+        }
+
+        const recipients = res.branches || [];
+
+        if (recipients.length === 1) {
+          // נמצא נמען יחיד - משדרים ישירות
+          await executeLionWheelDispatch(orderId, recipients[0], selectedMethod, notesText);
+        } else if (recipients.length > 1) {
+          // נמצאו מספר נמענים תואמים - פותח בחירה מתוך הרשימה
+          openBranchSelectionModal(orderId, recipients, selectedMethod, notesText);
+        } else {
+          // הנמען כלל אינו קיים ברשימה
+          const shouldCreateNew = confirm(
+            `הלקוח "${clientName}" לא נמצא ברשימת הנמענים.\nהאם ברצונך להזין פרטי נמען חדש למשלוח זה?`
+          );
+
+          if (shouldCreateNew) {
+            openNewLionWheelClientModal(orderId, selectedMethod, notesText);
+          } else if (confirm("האם להעביר לארכיון ללא פתיחת משלוח?")) {
+            finishArchivingOrder(orderId, selectedMethod, notesText);
+          }
+        }
+      } catch (err) {
+        alert("שגיאת תקשורת בבדיקת נמען: " + err.message);
+        finishArchivingOrder(orderId, selectedMethod, notesText);
+      }
+    }
+
+    // פתיחת מודאל בחירת סניף
+    function openBranchSelectionModal(orderId, branches, selectedMethod, notesText) {
+      pendingLionWheelOrder = { orderId, branches, selectedMethod, notesText };
+
+      const container = document.getElementById('lionWheelBranchList');
+      if (!container) return;
+
+      container.innerHTML = branches.map((b, idx) => `
+    <label style="display:flex;align-items:flex-start;gap:10px;padding:10px;border:1px solid #e5e7eb;border-radius:8px;cursor:pointer;background:#f9fafb;">
+      <input type="radio" name="lw_branch_radio" value="${idx}" ${idx === 0 ? 'checked' : ''} style="margin-top:4px;">
+      <div>
+        <div style="font-weight:bold;color:#111827;">${b.branchName}</div>
+        <div style="font-size:13px;color:#4b5563;">${b.city}, ${b.street} ${b.houseNumber}</div>
+        ${b.locationNotes ? `<div style="font-size:12px;color:#b45309;margin-top:2px;">📍 הערה: ${b.locationNotes}</div>` : ''}
+      </div>
+    </label>
+  `).join('');
+
+      const modal = document.getElementById('lionWheelBranchModal');
+      if (modal) {
+        modal.style.display = 'flex';
+        modal.classList.remove('hidden');
+      }
+    }
+
+    // סגירת מודאל בחירת סניף
+    function closeBranchModal() {
+      const modal = document.getElementById('lionWheelBranchModal');
+      if (modal) {
+        modal.style.display = 'none';
+        modal.classList.add('hidden');
+      }
+      pendingLionWheelOrder = null;
+    }
+
+    // אישור הסניף שנבחר
+    async function dispatchSelectedBranch() {
+      if (!pendingLionWheelOrder) return;
+
+      const selectedRadio = document.querySelector('input[name="lw_branch_radio"]:checked');
+      if (!selectedRadio) {
+        alert("נא לבחור סניף מהרשימה");
+        return;
+      }
+
+      const branchIndex = parseInt(selectedRadio.value, 10);
+      const chosenBranch = pendingLionWheelOrder.branches[branchIndex];
+      const { orderId, selectedMethod, notesText } = pendingLionWheelOrder;
+
+      closeBranchModal();
+      await executeLionWheelDispatch(orderId, chosenBranch, selectedMethod, notesText);
+    }
+
+    // שידור המשימה בפועל ל-LionWheel, פתיחת מדבקה והעברה לארכיון
+    async function executeLionWheelDispatch(orderId, branchData, selectedMethod, notesText) {
+      const order = (typeof orders !== 'undefined' ? orders : []).find(o => String(o.id) === String(orderId)) || {};
+
+      // בקשת מספר תעודת משלוח מהמשתמש
+      const invoiceNum = prompt(`הזן מספר תעודת משלוח עבור הזמנה ${orderId}:`, "") || "";
+
+      const orderData = {
+        id: orderId,
+        invoiceNumber: invoiceNum.trim(),
+        clientName: branchData.branchName,
+        city: branchData.city,
+        street: branchData.street,
+        houseNumber: branchData.houseNumber,
+        phone: branchData.phone || '',
+        deliveryNotes: [branchData.locationNotes, notesText].filter(Boolean).join(' | '),
+        packagesCount: order.packagesCount || 1,
+        notes: `הזמנה ${orderId}${invoiceNum ? ' | תעודה ' + invoiceNum : ''}`
+      };
+
+      try {
+        const payload = {
+          key: typeof SYSTEM_SECRET_KEY !== 'undefined' ? SYSTEM_SECRET_KEY : (typeof SYSTEM_KEY !== 'undefined' ? SYSTEM_KEY : 'Ladlite2026Secure!'),
+          action: 'createLionWheelDelivery',
+          orderData: orderData
+        };
+
+        const res = await (await fetch(typeof API_URL !== 'undefined' ? API_URL : SCRIPT_URL, {
+          method: 'POST',
+          body: JSON.stringify(payload)
+        })).json();
+
+        if (res.success) {
+          // פתיחת כרטיסיית המדבקה ישירות (יש לאשר חלונות קופצים פעם אחת בדפדפן)
+          const labelUrl = res.labelUrl || res.label;
+          if (labelUrl) {
+            window.open(labelUrl, '_blank');
+          }
+
+          let extra = `משימה: ${res.taskId}`;
+          if (invoiceNum) extra += ` | תעודה: ${invoiceNum}`;
+          if (res.trackingLink) extra += ` | מעקב: ${res.trackingLink}`;
+
+          await finishArchivingOrder(orderId, selectedMethod, notesText, extra);
+        } else {
+          alert("שגיאה מ-LionWheel: " + (res.error || 'נכשלה יצירת המשימה'));
+          if (confirm("האם להעביר לארכיון בכל זאת?")) {
+            await finishArchivingOrder(orderId, selectedMethod, notesText, `שגיאת שידור דבסט: ${res.error}`);
+          }
+        }
+      } catch (err) {
+        alert("שגיאת רשת בשידור המשימה: " + err.message);
+        await finishArchivingOrder(orderId, selectedMethod, notesText);
+      }
+    }
+
+    // משתנה זמני לשמירת ההזמנה שמטופלת כרגע במודאל הלקוח החדש
+    let pendingNewClientDispatch = null;
+
+    // פונקציה לפתיחת מודאל לקוח חדש
+    function openNewLionWheelClientModal(orderId, selectedMethod = 'משלוח LionWheel', notesText = '') {
+      pendingNewClientDispatch = { orderId, selectedMethod, notesText };
+
+      // איפוס שדות
+      const form = document.getElementById('newLionWheelClientForm');
+      if (form) form.reset();
+
+      // החזרת ברירת המחדל למסומן
+      const saveCheckbox = document.getElementById('nlw_saveToSheet');
+      if (saveCheckbox) saveCheckbox.checked = true;
+
+      // אם יש שם לקוח בהזמנה הנוכחית - נמלא אותו אוטומטית לנוחות
+      const order = (typeof orders !== 'undefined' ? orders : []).find(o => String(o.id) === String(orderId));
+      if (order && order.clientName) {
+        const nameInput = document.getElementById('nlw_name');
+        if (nameInput) nameInput.value = order.clientName;
+      }
+
+      const modal = document.getElementById('newLionWheelClientModal');
+      if (modal) modal.classList.remove('hidden');
+    }
+
+    function closeNewLionWheelClientModal() {
+      const modal = document.getElementById('newLionWheelClientModal');
+      if (modal) modal.classList.add('hidden');
+      pendingNewClientDispatch = null;
+    }
+
+    // טיפול באישור הטופס: שמירה בגיליון (אם מסומן) ושידור ל-LionWheel
+    async function handleNewClientDispatchSubmit(e) {
+      if (e) e.preventDefault();
+      if (!pendingNewClientDispatch) return;
+
+      const submitBtn = document.getElementById('nlw_submitBtn');
+      if (submitBtn) {
+        submitBtn.disabled = true;
+        submitBtn.innerText = 'מעבד...';
+      }
+
+      const clientData = {
+        name: document.getElementById('nlw_name').value.trim(),
+        contactPerson: document.getElementById('nlw_contact').value.trim(),
+        city: document.getElementById('nlw_city').value.trim(),
+        street: document.getElementById('nlw_street').value.trim(),
+        building: document.getElementById('nlw_building').value.trim(),
+        phone: document.getElementById('nlw_phone').value.trim(),
+        entryCode: document.getElementById('nlw_entryCode').value.trim(),
+        notes: document.getElementById('nlw_notes').value.trim()
+      };
+
+      const shouldSave = document.getElementById('nlw_saveToSheet').checked;
+
+      try {
+        // 1. שמירה בגיליון LionWheel_Clients רק אם הרובריקה מסומנת
+        if (shouldSave) {
+          const savePayload = {
+            key: typeof SYSTEM_SECRET_KEY !== 'undefined' ? SYSTEM_SECRET_KEY : (typeof SYSTEM_KEY !== 'undefined' ? SYSTEM_KEY : 'Ladlite2026Secure!'),
+            action: 'saveNewLionWheelClient',
+            clientData: clientData
+          };
+
+          const saveRes = await (await fetch(typeof API_URL !== 'undefined' ? API_URL : SCRIPT_URL, {
+            method: 'POST',
+            body: JSON.stringify(savePayload)
+          })).json();
+
+          if (saveRes.error) {
+            console.warn('שגיאה בעת שמירת לקוח חדש בגיליון:', saveRes.error);
+          }
+        }
+
+        // 2. הכנת אובייקט branchData התואם למבנה שמצפה executeLionWheelDispatch
+        const branchData = {
+          branchName: clientData.name,
+          city: clientData.city,
+          street: clientData.street,
+          houseNumber: clientData.building,
+          phone: clientData.phone,
+          locationNotes: [clientData.notes, clientData.entryCode ? 'קוד כניסה: ' + clientData.entryCode : ''].filter(Boolean).join(' | ')
+        };
+
+        const { orderId, selectedMethod, notesText } = pendingNewClientDispatch;
+        closeNewLionWheelClientModal();
+
+        // 3. שידור המשימה, פתיחת מדבקה והעברה לארכיון
+        await executeLionWheelDispatch(orderId, branchData, selectedMethod, notesText);
+
+      } catch (err) {
+        alert('אירעה שגיאה בעיבוד הנתונים: ' + err.message);
+      } finally {
+        if (submitBtn) {
+          submitBtn.disabled = false;
+          submitBtn.innerText = 'המשך לשידור ומדבקה 🖨️';
+        }
+      }
+    }
+
+    // פונקציית סגירת הארכיון המעודכנת - תמיכה בפיצול משלוחים ופינוי מהלוח
+    async function finishArchivingOrder(orderId, selectedMethod, notesText, additionalInfo = '') {
+      let deliveryInfoValue = '';
+      const order = (typeof orders !== 'undefined' ? orders : []).find(o => String(o.id) === String(orderId));
+
+      // 1. טיפול בשידור של דבסט / LionWheel
+      if (selectedMethod === 'דבסט' || (additionalInfo && additionalInfo.includes('משימה:'))) {
+        const taskMatch = additionalInfo.match(/משימה:\s*([^\s|]+)/);
+        const trackingMatch = additionalInfo.match(/מעקב:\s*([^\s|]+)/);
+        const invoiceMatch = additionalInfo.match(/תעודה:\s*([^\s|]+)/);
+
+        const newShipment = {
+          company: selectedMethod || 'דבסט',
+          statusText: 'בטיפול / שודר',
+          taskId: taskMatch ? taskMatch[1] : '',
+          trackingUrl: trackingMatch ? trackingMatch[1] : '',
+          invoiceNumber: invoiceMatch ? invoiceMatch[1] : '',
+          notes: notesText || '',
+          updatedAt: new Date().toLocaleDateString('he-IL', { day: '2-digit', month: '2-digit', hour: '2-digit', minute: '2-digit' })
+        };
+
+        // בדיקה אם קיימים כבר משלוחים קודמים כדי לא לדרוס אותם (הזמנה מפוצלת)
+        let shipments = [];
+        if (order && order.deliveryInfo) {
+          try {
+            const parsed = typeof order.deliveryInfo === 'object' ? order.deliveryInfo : JSON.parse(order.deliveryInfo);
+            if (Array.isArray(parsed.shipments)) {
+              shipments = parsed.shipments;
+            } else if (parsed.taskId || parsed.trackingUrl) {
+              shipments.push(parsed); // שמירת המשלוח הראשון
+            }
+          } catch (e) {
+            const match = String(order.deliveryInfo).match(/(https?:\/\/[^\s]+)/);
+            if (match) {
+              shipments.push({ company: 'דבסט', statusText: 'שודר בעבר', trackingUrl: match[1], invoiceNumber: '' });
+            }
+          }
+        }
+
+        // הוספת המשלוח הנוכחי למערך
+        shipments.push(newShipment);
+
+        deliveryInfoValue = JSON.stringify({
+          company: 'דבסט',
+          shipments: shipments
+        });
+
+      } else {
+        // עבור שיטות אספקה רגילות (איסוף עצמי, שליח פנימי וכו')
+        let infoText = `אופן אספקה: ${selectedMethod}`;
+        if (notesText) infoText += ` | הערה: ${notesText}`;
+        if (additionalInfo) infoText += ` | ${additionalInfo}`;
+        deliveryInfoValue = infoText;
+      }
+
+      // 2. עדכון מקומי והעברה לארכיון בזיכרון
+      if (typeof orders !== 'undefined') {
+        const orderIndex = orders.findIndex(o => String(o.id) === String(orderId));
+        if (orderIndex > -1) {
+          const archivedItem = {
+            ...orders[orderIndex],
+            deliveryInfo: deliveryInfoValue,
+            suppliedBy: selectedMethod,
+            status: 'ארכיון',
+            archivedAt: new Date().toISOString()
+          };
+
+          // הסרה מהלוח הפעיל
+          orders.splice(orderIndex, 1);
+
+          // הוספה לארכיון בראש הרשימה
+          if (typeof window.archivedOrders !== 'undefined') {
+            window.archivedOrders.unshift(archivedItem);
+          }
+        }
+      }
+
+      // 3. שמירה בפועל לשרת / לגיליון
+      if (typeof archiveOrder === 'function') {
+        await archiveOrder(orderId, deliveryInfoValue);
+      }
+
+      // 4. סגירת מודאל ההזמנה הפתוח
+      if (typeof closeOrderDetails === 'function') {
+        closeOrderDetails();
+      } else if (typeof closeOrderModal === 'function') {
+        closeOrderModal();
+      } else if (typeof closeModal === 'function') {
+        closeModal();
+      }
+
+      // סגירת מודאל הסוכן במידה והוא פתוח
+      if (typeof closeAgentOrderModal === 'function') {
+        closeAgentOrderModal();
+      }
+
+      // 5. ריענון הלוח כדי שהכרטיס ייעלם מהמסך
+      if (typeof renderBoard === 'function') {
+        renderBoard();
+      } else if (typeof renderOrders === 'function') {
+        renderOrders();
+      }
+    }
+
+    // הוספת אפשרות חדשה ישירות מהמודאל ושמירה ב-Sheets
+    async function addQuickDeliveryOption() {
+      const input = document.getElementById('newDeliveryOptionInput');
+      const val = input ? input.value.trim() : '';
+      if (!val) return;
+
+      if (!deliveryOptionsList.includes(val)) {
+        deliveryOptionsList.push(val);
+        populateDeliverySelect();
+
+        const select = document.getElementById('deliverySelect');
+        if (select) select.value = val;
+
+        try {
+          await fetch(API_URL, {
+            method: 'POST',
+            body: JSON.stringify({
+              key: SYSTEM_KEY,
+              action: 'saveDeliveryOptions',
+              options: deliveryOptionsList
+            })
+          });
+        } catch (err) {
+          console.error('שגיאה בשמירת אפשרות לשרת:', err);
+        }
+      }
+
+      input.value = '';
+    }
+
+    // רשימת הסוכנים הדינמית
+    let agents = [];
+
+    // שליפת סוכנים מלשונית Agents בגיליון (ללא הדפסה לקונסול וללא סיסמאות)
+    async function fetchAgentsList() {
+      try {
+        const res = await fetch(`${API_URL}?key=${SYSTEM_KEY}&type=agents`);
+        const data = await res.json();
+
+        if (data && Array.isArray(data.agents)) {
+          // שמירה של מזהה, שם וטלפון בלבד - מחיקה אקטיבית של שדה סיסמה אם קיים
+          agents = data.agents.map(function (a) {
+            return {
+              id: String(a.id || '').trim(),
+              name: String(a.name || '').trim(),
+              phone: String(a.phone || '').trim()
+            };
+          });
+
+          if (typeof renderBoard === 'function') {
+            renderBoard(); // רענון הלוח עם שמות הסוכנים מהגיליון
+          }
+        }
+      } catch (err) {
+        // שגיאה שקטה ללא חשיפת פרטי תקשורת
+      }
+    }
+
+    // פונקציה להוספת סוכן חדש
+    function addNewAgent() {
+      const name = prompt('הזן שם סוכן:');
+      if (!name) return;
+      const phone = prompt('הזן מספר טלפון של הסוכן (לוואטסאפ):');
+      if (!phone) return;
+
+      const newAgent = {
+        id: 'a_' + Date.now(),
+        name: name.trim(),
+        phone: phone.trim()
+      };
+
+      agents.push(newAgent);
+      renderBoard(); // רענון הלוח להצגת התא החדש
+    }
+
+    let currentSelectedOrderId = null;
+
+    // 3. חישוב ימי המתנה מהיר עם זיכרון מטמון (Memoized)
+    function calculateDaysPassed(dateString, order) {
+      // אם העברנו את אובייקט ההזמנה והערך כבר חושב בעבר - החזר מיד מהזיכרון
+      if (order && order._daysPassed !== undefined) {
+        return order._daysPassed;
+      }
+
+      if (!dateString) return 0;
+
+      const created = new Date(dateString);
+      const now = new Date();
+      const diffTime = Math.abs(now - created);
+      const days = Math.floor(diffTime / (1000 * 60 * 60 * 24));
+
+      // שמירה על גבי האובייקט לפעמים הבאות
+      if (order) {
+        order._daysPassed = days;
+      }
+
+      return days;
+    }
+
+    // מחבר את השם החדש לפונקציה הקיימת שלך
+    function getDaysCached(order) {
+      return calculateDaysPassed(order?.createdAt, order);
+    }
+
+    // פונקציית בדיקה: האם יש הערות חדשות שלא נקראו
+    function hasUnreadComments(order) {
+      if (!order || !order.comments) return false;
+      const comments = Array.isArray(order.comments) ? order.comments : [];
+      if (comments.length === 0) return false;
+
+      const readCount = parseInt(localStorage.getItem(`read_comments_${order.id}`) || '0', 10);
+      return comments.length > readCount;
+    }
+
+    // פונקציית איפוס: סימון ההערות כנקראו
+    function markCommentsAsRead(orderId) {
+      const cleanId = String(orderId).replace(/^07\//, '').trim();
+      const order = (window.activeOrdersMap && (window.activeOrdersMap[orderId] || window.activeOrdersMap[cleanId]))
+        || (typeof orders !== 'undefined' ? orders.find(o => {
+          const oId = String(o.id || '').replace(/^07\//, '').trim();
+          return oId === cleanId || String(o.id) === String(orderId);
+        }) : null);
+
+      if (!order) return;
+
+      // ספירה מדויקת בין אם זה מערך ובין אם זה טקסט בודד
+      let count = 0;
+      if (Array.isArray(order.comments)) {
+        count = order.comments.length;
+      } else if (order.comments && String(order.comments).trim() !== '') {
+        count = 1;
+      }
+
+      // שמירה ב-localStorage עבור שני הפורמטים של ה-ID
+      localStorage.setItem(`read_comments_${orderId}`, count);
+      localStorage.setItem(`read_comments_${cleanId}`, count);
+
+      // עדכון מיידי של הכרטיס בלוח (הסרת מסגרת ההדגשה)
+      const cardEl = document.getElementById('order-card-' + orderId)
+        || document.getElementById('order-card-' + cleanId)
+        || document.querySelector(`[data-order-id="${orderId}"]`)
+        || document.querySelector(`[data-order-id="${cleanId}"]`);
+
+      if (cardEl) {
+        cardEl.classList.remove('border-amber-400', 'border-amber-500', 'border-rose-500', 'ring-2', 'ring-amber-400', 'animate-pulse');
+
+        // החזרת מסגרת הסטטוס המקורית אם מוגדר STATUS_MAP
+        if (typeof STATUS_MAP !== 'undefined') {
+          const rawStatus = String(order.status || '').toLowerCase().trim();
+          const stInfo = STATUS_MAP[rawStatus] || STATUS_MAP[order.status] || { border: 'border-slate-200' };
+          if (stInfo.border) cardEl.classList.add(stInfo.border);
+        }
+
+        const badge = cardEl.querySelector('.unread-badge, .new-comment-indicator, .unread-comment-badge');
+        if (badge) badge.remove();
+      }
+    }
+
+    let currentBillingOrderId = null;
+
+    // שינוי כמות חבילות עם הכפתורים
+    function adjustBillingPackages(delta) {
+      const input = document.getElementById('billingPackagesInput');
+      if (!input) return;
+      let val = parseInt(input.value, 10) || 1;
+      val = Math.max(1, val + delta);
+      input.value = val;
+    }
+
+    function openBillingModal(orderId) {
+      currentBillingOrderId = String(orderId);
+      const order = orders.find(o => String(o.id) === currentBillingOrderId);
+      if (!order) {
+        console.warn('הזמנה לא נמצאה במערך orders:', orderId);
+        return;
+      }
+
+      const titleEl = document.getElementById('billingModalTitle');
+      if (titleEl) {
+        titleEl.textContent = `העברה לחיוב: ${order.clientName || ''} (#${order.id})`;
+      }
+
+      const inputEl = document.getElementById('billingPackagesInput');
+      if (inputEl) {
+        inputEl.value = order.packagesCount || 1;
+      }
+
+      // איתור הזמנות פתוחות של אותו לקוח
+      const openOrders = orders.filter(o =>
+        String(o.id) !== currentBillingOrderId &&
+        o.clientName && order.clientName &&
+        o.clientName.trim() === order.clientName.trim() &&
+        o.status !== 'archive'
+      );
+
+      const container = document.getElementById('billingOpenOrdersList');
+      if (container) {
+        if (openOrders.length === 0) {
+          container.innerHTML = `<div class="text-xs text-slate-400 py-2 text-center">אין הזמנות פתוחות נוספות ללקוח זה</div>`;
+        } else {
+          container.innerHTML = openOrders.map(o => `
+        <label class="flex items-center gap-2 p-2 bg-white rounded border border-slate-200 hover:border-emerald-400 cursor-pointer text-xs">
+          <input type="checkbox" name="linkOrderCheck" value="${o.id}" class="accent-emerald-600 rounded">
+          <div class="flex-1 flex justify-between items-center">
+            <span class="font-bold text-slate-700">#${o.id}</span>
+            <span class="text-[10px] bg-slate-100 text-slate-600 px-1.5 py-0.5 rounded">${o.status}</span>
+          </div>
+        </label>
+      `).join('');
+        }
+      }
+
+      // פתיחת המודאל בצורה חד-משמעית
+      const modal = document.getElementById('readyForBillingModal');
+      if (modal) {
+        modal.classList.remove('hidden');
+        modal.style.display = 'flex';
+      } else {
+        console.error('האלמנט readyForBillingModal לא נמצא ב-DOM');
+      }
+    }
+
+    function closeBillingModal() {
+      const modal = document.getElementById('readyForBillingModal');
+      if (modal) {
+        modal.classList.add('hidden');
+        modal.style.display = 'none';
+      }
+      currentBillingOrderId = null;
+      if (typeof renderBoard === 'function') {
+        renderBoard();
+      }
+    }
+
+    // אישור ושמירה
+    async function confirmBillingModal() {
+      if (!currentBillingOrderId) return;
+
+      const packages = parseInt(document.getElementById('billingPackagesInput').value, 10) || 1;
+
+      // איסוף ההזמנות שסומנו לקישור
+      const checkedBoxes = document.querySelectorAll('input[name="linkOrderCheck"]:checked');
+      const linkedIds = Array.from(checkedBoxes).map(cb => cb.value);
+
+      // 1. סגירה מיידית של המודאל על המסך
+      const modal = document.getElementById('readyForBillingModal');
+      if (modal) {
+        modal.classList.add('hidden');
+        modal.style.display = 'none';
+      }
+
+      const mainOrderId = currentBillingOrderId;
+      currentBillingOrderId = null;
+
+      // 2. עדכון ההזמנה הראשית מקומית
+      const mainOrder = orders.find(o => String(o.id) === mainOrderId);
+      if (mainOrder) {
+        mainOrder.packagesCount = packages;
+        mainOrder.status = 'done';
+        if (linkedIds.length > 0) {
+          mainOrder.linkedOrderId = linkedIds[0];
+          mainOrder.linkedOrderIds = linkedIds;
+        }
+      }
+
+      // 3. עדכון כל ההזמנות המקושרות שסומנו
+      linkedIds.forEach(id => {
+        const o = orders.find(ord => String(ord.id) === String(id));
+        if (o) {
+          o.status = 'done';
+          o.packagesCount = packages;
+          o.linkedOrderId = mainOrderId;
+          o.linkedOrderIds = [mainOrderId];
+        }
+      });
+
+      // 4. ריענון הלוח על המסך כדי לראות את הכרטיסים עוברים לחיוב
+      renderBoard();
+
+      // 5. שליחה וסינכרון מול השרת ברקע
+      const ordersToSync = [mainOrder, ...linkedIds.map(id => orders.find(o => String(o.id) === String(id))).filter(Boolean)];
+      for (const ord of ordersToSync) {
+        try {
+          await fetch(API_URL, {
+            method: 'POST',
+            headers: { 'Content-Type': 'text/plain;charset=utf-8' },
+            body: JSON.stringify({
+              key: SYSTEM_KEY,
+              orderId: String(ord.id),
+              status: 'done',
+              packagesCount: ord.packagesCount || 1,
+              linkedOrderId: ord.linkedOrderId || ''
+            })
+          });
+        } catch (e) {
+          console.error('שגיאה בשמירת סטטוס לחיוב עבור הזמנה:', ord.id, e);
+        }
+      }
+    }
+
+    // 4. רינדור הלוח והטורים (בטוח, תואם מלא, ללא קריסות)
+    function renderBoard() {
+      const board = document.getElementById('board');
+      if (!board) return;
+      board.innerHTML = '';
+
+      COLUMNS.forEach(col => {
+        // סינון הזמנות הטור
+        const colOrders = orders
+          .filter(o => o.status === col.id && o.status !== 'archived')
+          .sort((a, b) => new Date(a.createdAt) - new Date(b.createdAt)); // FIFO
+
+        const count = colOrders.length;
+        let oldestDays = 0;
+        if (count > 0 && typeof calculateDaysPassed === 'function') {
+          oldestDays = calculateDaysPassed(colOrders[0].createdAt);
+        }
+
+        // יצירת עמודת הטור
+        const colEl = document.createElement('div');
+        colEl.className = `w-[85vw] sm:w-80 lg:w-auto lg:flex-1 shrink-0 lg:shrink h-full bg-white border-2 ${col.border} rounded-2xl flex flex-col shadow-sm snap-center min-w-0`;
+        colEl.dataset.colId = col.id;
+
+        // בניית ה-HTML של הטור
+        colEl.innerHTML = `
+          <!-- Header של הטור -->
+          <div class="${col.headerBg} p-3.5 rounded-t-xl border-b border-slate-100">
+            <div class="flex justify-between items-center mb-2">
+              <h2 class="font-bold ${col.textCol} text-base">${col.title}</h2>
+              <div class="flex items-center gap-1.5">
+                ${col.id === 'agent_wait' ? `
+                  <button type="button" onclick="addNewAgent()" class="bg-amber-600 hover:bg-amber-700 text-white text-[10px] font-bold px-2 py-0.5 rounded shadow transition">
+                    + סוכן
+                  </button>
+                ` : ''}
+                <span class="${col.badgeBg} text-white font-bold text-xs px-2.5 py-0.5 rounded-full">
+                  ${count}
+                </span>
+              </div>
+            </div>
+          </div>
+
+          <!-- מיכל הכרטיסים בתוך הטור -->
+          <div class="p-2 h-[calc(100vh-170px)] overflow-y-auto custom-scrollbar pt-2 pb-24">
+            ${col.id === 'agent_wait' ?
+            // טור סוכנים: תיבות לפי סוכן
+            (typeof agents !== 'undefined' ? agents : []).map(agent => {
+              const agentOrders = colOrders.filter(o =>
+                String(o.agentId).trim() === String(agent.id).trim() || o.agentName === agent.name
+              );
+
+              return `
+                  <div class="bg-amber-50 border border-amber-200 rounded-xl p-2 mb-3 shadow-2xs">
+                    <div class="font-bold text-xs text-amber-900 pb-1 mb-1.5 border-b border-amber-200 flex justify-between items-center">
+                      <span>👤 ${agent.name}</span>
+                      <span class="text-[10px] bg-amber-200/70 text-amber-900 px-1.5 py-0.2 rounded font-mono font-bold">${agentOrders.length}</span>
+                    </div>
+
+                    ${agentOrders.map(order => {
+                const isUnread = hasUnreadComments(order);
+                const days = typeof calculateDaysPassed === 'function' ? calculateDaysPassed(order.createdAt) : 0;
+                const borderClass = isUnread
+                  ? 'border-2 border-rose-500 ring-2 ring-rose-300 ring-offset-1 animate-pulse'
+                  : 'border border-amber-200 hover:border-amber-400';
+
+                return `
+                        <div 
+                          onclick="openOrderDetails('${order.id}')" 
+                          class="bg-white ${borderClass} rounded-lg p-2 mb-2 text-xs font-bold text-slate-700 cursor-pointer shadow-xs transition"
+                        >
+                          <div class="flex justify-between items-center text-[10px] text-slate-400 mb-1">
+                            <span class="font-mono text-slate-600">#${order.id}</span>
+                            ${isUnread ? '<span class="bg-rose-600 text-white text-[9px] font-extrabold px-1.5 py-0.2 rounded-full">חדש!</span>' : ''}
+                            <span>${days === 0 ? 'היום' : `${days} ימ'`}</span>
+                          </div>
+                          
+                          <div class="truncate text-slate-800 mb-1.5 flex items-center justify-between gap-1">
+    <span class="truncate">${order.clientName}</span>
+    <button 
+      type="button" 
+      data-cust-id="${order.customerId || ''}" 
+      data-cust-name="${order.clientName || ''}"
+      onclick="event.stopPropagation(); openCustomerModal(this.dataset.custId, this.dataset.custName);" 
+      class="text-slate-400 hover:text-blue-600 hover:bg-blue-50 p-0.5 rounded transition shrink-0" 
+      title="הצג פרטי לקוח מרווחית">
+      👤
+    </button>
+  </div>
+
+                          <div class="pt-1 border-t border-slate-100 flex items-center justify-between gap-1" onclick="event.stopPropagation()">
+                            <span class="text-[9px] font-normal text-slate-400 shrink-0">העבר:</span>
+                            <select 
+                              onchange="onSelectStatusChange('${order.id}', this.value)"
+                              class="w-full bg-slate-50 border border-slate-200 hover:border-blue-400 text-[10px] font-bold text-slate-700 rounded py-0.5 px-1 outline-none transition cursor-pointer"
+                            >
+                              <option value="" disabled selected>בחר שלב...</option>
+                              <option value="new">🆕 חדשה</option>
+                              <option value="picking">📦 בליקוט</option>
+                              <option value="agent_wait" selected>💬 אצל סוכן</option>
+                              <option value="packing">🔬 במעבדה</option>
+                              <option value="ready">🚚 למשלוח</option>
+                              <option value="done">💳 לחיוב</option>
+                              <option value="archived" class="text-rose-600 font-bold">❌ ביטול הזמנה</option>
+                            </select>
+                          </div>
+                        </div>
+                      `;
+              }).join('')}
+                  </div>
+                `;
+            }).join('')
+            :
+            // טורים רגילים (חדש, ליקוט, מעבדה, משלוח, חיוב)
+            colOrders.map((order, idx) => {
+              const days = getDaysCached(order);
+              const overlapStyle = idx === 0 ? '' : 'margin-top: -110px;';
+              const isUnread = hasUnreadComments(order);
+              const commentsCount = Array.isArray(order.comments) ? order.comments.length : (order.comments ? 1 : 0);
+
+              const borderClass = isUnread
+                ? 'border-2 border-rose-500 ring-2 ring-rose-300 ring-offset-1 animate-pulse'
+                : 'border-2 border-slate-300 hover:border-blue-500';
+
+              // נתוני ראש הכרטיס החדשים:
+              const packages = order.packagesCount || 1;
+              const hasLinked = Boolean(order.linkedOrderId || (Array.isArray(order.linkedOrderIds) && order.linkedOrderIds.length > 0));
+              const linkedIdDisplay = hasLinked ? (order.linkedOrderId || order.linkedOrderIds[0]) : '';
+              const suppliedBy = order.suppliedBy || order.deliveryInfo || 'לא צוין';
+              const archiveDate = order.archivedAt ? new Date(order.archivedAt).toLocaleDateString('he-IL') : null;
+
+              return `
+                <div 
+  onclick="openOrderDetails('${order.id}')"
+  style="${overlapStyle} z-index: ${idx + 1};"
+  class="order-card relative bg-white ${borderClass} rounded-2xl p-3 h-48 shadow-[0_-4px_12px_rgba(0,0,0,0.06)] hover:shadow-lg hover:-translate-y-2 transition-all duration-200 cursor-pointer flex flex-col justify-between"
+>
+                    <!-- ראש הכרטיס -->
+<div>
+  <div class="flex justify-between items-center border-b border-slate-100 pb-1.5 mb-1.5 bg-white">
+    <div class="flex items-center gap-1.5 min-w-0">
+      <span class="text-xs font-bold text-slate-400">#${order.id}</span>
+      <span class="font-bold text-slate-800 text-sm truncate">${order.clientName}</span>
+      <button 
+        type="button" 
+        data-cust-id="${order.customerId || ''}" 
+        data-cust-name="${order.clientName || ''}"
+        onclick="event.stopPropagation(); openCustomerModal(this.dataset.custId, this.dataset.custName);" 
+        class="text-slate-400 hover:text-blue-600 hover:bg-blue-50 p-1 rounded-full transition shrink-0" 
+        title="הצג פרטי לקוח מרווחית">
+        👤
+      </button>
+    </div>
+    <div class="flex items-center gap-1 shrink-0">
+      ${isUnread ? `
+        <span class="bg-rose-600 text-white text-[9px] font-extrabold px-1.5 py-0.2 rounded-full shadow-2xs">
+          חדש!
+        </span>
+      ` : ''}
+      <span class="text-[10px] font-semibold px-2 py-0.5 rounded-full ${days >= 3 ? 'bg-rose-100 text-rose-700' : 'bg-slate-100 text-slate-600'}">
+        ${days === 0 ? 'היום' : `${days} ימים`}
+      </span>
+    </div>
+  </div>
+
+  <!-- שורת תגיות מידע: סופק ע"י, חבילות, חבילה מקושרת, ארכיון -->
+  <div class="flex flex-wrap items-center gap-1.5 pb-2 mb-2 border-b border-slate-100 text-[11px]">
+    <!-- סופק ע"י -->
+    <span class="bg-slate-100 text-slate-700 px-2 py-0.5 rounded font-medium" title="סופק על ידי">
+      🚚 ${suppliedBy}
+    </span>
+
+    <!-- מספר חבילות -->
+    <span class="bg-blue-50 text-blue-700 px-2 py-0.5 rounded font-medium border border-blue-100">
+      📦 ${packages} חב'
+    </span>
+
+    <!-- חבילה מקושרת: כפתורי מעבר לחיצים כשיש קישור, או "ללא" -->
+    ${hasLinked ? `
+      <div class="flex items-center gap-1 flex-wrap" onclick="event.stopPropagation()">
+        ${(String(order.linkedOrderId || '').split(',')).map(id => id.trim()).filter(Boolean).map(targetId => `
+          <button 
+            type="button"
+            onclick="openOrderDetails('${targetId}'); event.stopPropagation();"
+            class="bg-red-500 hover:bg-red-600 text-white font-bold px-2 py-0.5 rounded text-[11px] flex items-center gap-1 shadow-sm transition hover:scale-105 active:scale-95 cursor-pointer"
+            title="לחץ למעבר להזמנה #${targetId}"
+          >
+            <span>🔗</span>
+            <span>#${targetId}</span>
+          </button>
+        `).join('')}
+      </div>
+    ` : `
+      <span class="bg-slate-100 text-slate-400 px-2 py-0.5 rounded flex items-center gap-1 text-[11px]" title="אין הזמנה מקושרת">
+        🔗 ללא
+      </span>
+    `}
+
+    <!-- תאריך ארכיון/משלוח (מוצג רק אם קיים תאריך כזה) -->
+    ${archiveDate ? `
+      <span class="bg-emerald-50 text-emerald-700 px-2 py-0.5 rounded font-medium border border-emerald-100 mr-auto" title="תאריך משלוח/ארכיון">
+        📅 ${archiveDate}
+      </span>
+    ` : ''}
+  </div>
+
+                      <div class="flex items-center justify-between text-[11px] text-slate-400 mb-1">
+                        <span>לחץ לצפייה והערות</span>
+                        ${commentsCount > 0 ? `
+                          <span class="text-blue-600 font-bold bg-blue-50 px-2 py-0.5 rounded-md">
+                            💬 ${commentsCount}
+                          </span>
+                        ` : ''}
+                      </div>
+                    </div>
+
+                    <!-- תחתית הכרטיס: תפריט העברת שלב וכפתור הוצאה -->
+                    <div>
+                      ${order.status === 'done' ? `
+                        <div class="mb-1.5 flex justify-end" onclick="event.stopPropagation()">
+                          <button 
+                            type="button"
+                            onclick="openDeliveryPrompt('${order.id}')" 
+                            class="bg-blue-600 hover:bg-blue-700 text-white text-[10px] font-bold px-2 py-1 rounded shadow-xs transition flex items-center gap-1"
+                          >
+                            <span>✓</span>
+                            <span>הוצא מהלוח</span>
+                          </button>
+                        </div>
+                      ` : ''}
+
+                      <div class="pt-1.5 border-t border-slate-100 flex items-center justify-between gap-1" onclick="event.stopPropagation()">
+                        <span class="text-[10px] font-bold text-slate-400 shrink-0">העבר:</span>
+                        <select 
+                          onchange="onSelectStatusChange('${order.id}', this.value)"
+                          class="w-full bg-slate-50 border border-slate-200 hover:border-blue-400 text-[10px] font-bold text-slate-700 rounded py-0.5 px-1 outline-none transition cursor-pointer"
+                        >
+                          <option value="" disabled selected>בחר שלב...</option>
+                          <option value="new" ${order.status === 'new' ? 'selected' : ''}>🆕 חדשה</option>
+                          <option value="picking" ${order.status === 'picking' ? 'selected' : ''}>📦 בליקוט</option>
+                          <option value="agent_wait" ${order.status === 'agent_wait' ? 'selected' : ''}>💬 ממתין לסוכן</option>
+                          <option value="packing" ${order.status === 'packing' ? 'selected' : ''}>🔬 במעבדה</option>
+                          <option value="ready" ${order.status === 'ready' ? 'selected' : ''}>🚚 למשלוח</option>
+                          <option value="done" ${order.status === 'done' ? 'selected' : ''}>💳 לחיוב</option>
+                          <option value="archived" ${order.status === 'archived' ? 'selected' : ''} class="text-rose-600 font-bold">❌ ביטול הזמנה</option>
+                        </select>
+                      </div>
+                    </div>
+
+                  </div>
+                `;
+            }).join('')}
+          </div>
+        `;
+
+        board.appendChild(colEl);
+      });
+
+      if (typeof updateArchiveBadge === 'function') {
+        updateArchiveBadge();
+      }
+    }
+
+    function renderDeliveryBadge(deliveryInfoStr) {
+      if (!deliveryInfoStr) return '';
+
+      let info = null;
+      const rawText = String(deliveryInfoStr).trim();
+
+      // 1. ניסיון פענוח JSON
+      try {
+        info = typeof deliveryInfoStr === 'object' ? deliveryInfoStr : JSON.parse(deliveryInfoStr);
+      } catch (e) {
+        info = null;
+      }
+
+      // 2. טיפול במחרוזת טקסט רגילה (Fallback אם עדיין לא נשמר כ-JSON)
+      if (!info || !info.statusText) {
+        const urlMatch = rawText.match(/(https?:\/\/[^\s]+)/);
+        const trackingUrl = urlMatch ? urlMatch[1] : '';
+        const cleanText = trackingUrl
+          ? rawText.replace(urlMatch[0], '').replace(/\|\s*מעקב:\s*$/, '').trim()
+          : rawText;
+
+        return `
+      <div class="inline-flex flex-col gap-1 p-2 rounded-lg border border-slate-200 bg-slate-50 text-right">
+        <div class="flex items-center gap-1.5 text-xs font-bold text-slate-700">
+          <span>📦</span>
+          <span>${cleanText || 'משלוח בטיפול'}</span>
+        </div>
+        ${trackingUrl ? `
+          <div class="flex items-center pt-1 border-t border-slate-200/60">
+            <a href="${trackingUrl}" target="_blank" onclick="event.stopPropagation()" 
+               class="text-[10px] text-blue-600 hover:text-blue-800 hover:underline inline-flex items-center gap-0.5 font-semibold">
+              <span>מעקב משלוח ציבורי</span>
+              <span>↗</span>
+            </a>
+          </div>` : ''}
+      </div>
+    `;
+      }
+
+      // 3. הגדרת צבעים ואייקונים לפי שלב המשלוח בפועל
+      const status = (info.statusText || '').trim();
+      let badgeClasses = 'bg-slate-100 text-slate-800 border-slate-300';
+      let dotColor = 'bg-slate-400';
+      let icon = '📦';
+
+      if (status.includes('נמסר') || status.includes('הושלם')) {
+        badgeClasses = 'bg-emerald-50 text-emerald-800 border-emerald-200';
+        dotColor = 'bg-emerald-500';
+        icon = '✅';
+      } else if (status.includes('בדרך') || status.includes('בחלוקה') || status.includes('יצא לחלוקה')) {
+        badgeClasses = 'bg-blue-50 text-blue-800 border-blue-200';
+        dotColor = 'bg-blue-500 animate-ping';
+        icon = '🚚';
+      } else if (status.includes('שובץ') || status.includes('נהג')) {
+        badgeClasses = 'bg-purple-50 text-purple-800 border-purple-200';
+        dotColor = 'bg-purple-500';
+        icon = '📋';
+      } else if (status.includes('מרלוג') || status.includes('איסוף') || status.includes('התקבל')) {
+        badgeClasses = 'bg-amber-50 text-amber-800 border-amber-200';
+        dotColor = 'bg-amber-500';
+        icon = '🏬';
+      } else if (status.includes('בוטל') || status.includes('נכשל') || status.includes('חריג')) {
+        badgeClasses = 'bg-rose-50 text-rose-800 border-rose-200';
+        dotColor = 'bg-rose-500';
+        icon = '⚠️';
+      }
+
+      // קישור המעקב הציבורי הבטוח בלבד
+      const trackingLinkHtml = info.trackingUrl
+        ? `<a href="${info.trackingUrl}" target="_blank" onclick="event.stopPropagation()" 
+         class="text-[10px] text-blue-600 hover:text-blue-800 hover:underline inline-flex items-center gap-0.5 font-semibold">
+         <span>מעקב</span>
+         <span>↗</span>
+       </a>`
+        : '';
+
+      // פרטי שורה תחתונה (מספר משימה / תאריך עדכון)
+      const metaDetails = [
+        info.taskId ? `משימה #${info.taskId}` : '',
+        info.updatedAt ? `עודכן: ${info.updatedAt}` : ''
+      ].filter(Boolean).join(' • ');
+
+      return `
+    <div class="inline-flex flex-col gap-1 p-2 rounded-xl border text-right shadow-2xs ${badgeClasses} min-w-[190px]">
+      <!-- שורה עליונה: סטטוס ושלב נוכחי מובלט -->
+      <div class="flex items-center justify-between gap-2">
+        <div class="flex items-center gap-1.5 font-bold text-xs">
+          <span>${icon}</span>
+          <span>${status}</span>
+        </div>
+        <span class="w-2 h-2 rounded-full ${dotColor}"></span>
+      </div>
+
+      <!-- שורה תחתונה: מזהה, זמן עדכון וקישור ציבורי -->
+      <div class="flex items-center justify-between gap-2 text-[10px] text-slate-500 pt-1 border-t border-black/5 mt-0.5">
+        <span class="truncate">${metaDetails || (info.company || 'דבסט')}</span>
+        ${trackingLinkHtml}
+      </div>
+    </div>
+  `;
+    }
+
+    // החלפת הגרירה: העברת שלב חכמה דרך רשימה נפתחת
+    async function onSelectStatusChange(orderId, newStatus) {
+      if (!newStatus) return;
+
+      const order = orders.find(o => String(o.id) === String(orderId));
+      if (!order) return;
+
+      // 0. טיפול בביטול הזמנה והעברה לארכיון
+      if (newStatus === 'archived') {
+        const isConfirmed = confirm(`האם לבטל את הזמנה #${orderId} ולהעביר אותה לארכיון?`);
+        if (!isConfirmed) {
+          renderBoard(); // מחזיר את הבחירה למצב הקודם
+          return;
+        }
+
+        // תזמון מחיקה מהמטמון לעוד 60 יום
+        markOrderForCacheExpiry(orderId);
+
+        // עדכון סטטוס ותאריך ארכיון
+        order.status = 'archived';
+        order.archivedAt = new Date().toISOString();
+
+        // הוספת הערה אוטומטית
+        if (!Array.isArray(order.comments)) {
+          order.comments = [];
+        }
+        order.comments.push({
+          id: Date.now().toString(),
+          text: '❌ הזמנה זו בוטלה',
+          author: 'מחסן',
+          date: new Date().toISOString(),
+          read: true
+        });
+
+        // העברה למערך הארכיון והסרה מלוח העבודה הפעיל
+        orders = orders.filter(o => String(o.id) !== String(orderId));
+        if (!window.archivedOrders) window.archivedOrders = [];
+        window.archivedOrders.unshift(order);
+
+        renderBoard();
+
+        // סנכרון ישיר מול השרת
+        try {
+          const res = await fetch(API_URL, {
+            method: 'POST',
+            headers: { 'Content-Type': 'text/plain;charset=utf-8' },
+            body: JSON.stringify({
+              key: SYSTEM_KEY,
+              orderId: String(orderId),
+              status: 'archived',
+              archivedAt: order.archivedAt,
+              comments: order.comments
+            })
+          });
+          const msg = await res.text();
+          console.log(`הזמנה #${orderId} בוטלה והועברה לארכיון:`, msg);
+        } catch (err) {
+          console.error('שגיאה בסנכרון ביטול הזמנה לארכיון:', err);
+        }
+        return;
+      }
+
+      // 1. טיפול מיוחד בהעברה לחיוב (פתיחת מודאל חבילות וקישור הזמנות)
+      if (newStatus === 'done') {
+        openBillingModal(orderId);
+        return;
+      }
+
+      // 2. טיפול מיוחד בהעברה לטור "ממתין לסוכן" - בחירת סוכן + שאלת בירור
+      if (newStatus === 'agent_wait') {
+        let targetAgent = null;
+
+        // בדיקה האם כבר מוגדר סוכן להזמנה
+        if (order.agentId) {
+          targetAgent = agents.find(a => String(a.id).trim() === String(order.agentId).trim());
+        }
+
+        // אם אין סוכן משויך (או שרוצים לבחור סוכן), מציגים רשימת בחירה
+        if (!targetAgent) {
+          const agentOptionsText = agents.map((a, i) => `${i + 1}. ${a.name} (ID: ${a.id})`).join('\n');
+          const selection = prompt(`בחר סוכן להעברת ההזמנה:\n${agentOptionsText}\n\nהקלד את מספר הסוכן מהרשימה (1, 2 וכו') או את שם הסוכן:`);
+
+          if (!selection) {
+            // ביטול - מחזיר את ה-select למצב הקודם
+            renderBoard();
+            return;
+          }
+
+          const num = parseInt(selection, 10);
+          if (!isNaN(num) && num >= 1 && num <= agents.length) {
+            targetAgent = agents[num - 1];
+          } else {
+            targetAgent = agents.find(a => a.name.includes(selection.trim()) || String(a.id).trim() === selection.trim());
+          }
+
+          if (!targetAgent) {
+            alert('סוכן לא נמצא, הפעולה בוטלה');
+            renderBoard();
+            return;
+          }
+        }
+
+        // עדכון פרטי הסוכן בהזמנה
+        order.agentId = targetAgent.id;
+        order.agentName = targetAgent.name;
+        order.agentPhone = targetAgent.phone;
+        order.status = 'agent_wait';
+
+        // עדכון הלוח והשרת
+        renderBoard();
+        updateOrderOnServer(orderId, 'agent_wait');
+
+        // פתיחת שאלת הבירור והוואטסאפ
+        contactAgent(orderId);
+        return;
+      }
+
+      // 3. העברה רגילה לכל שאר הטורים
+      order.status = newStatus;
+      renderBoard();
+      updateOrderOnServer(orderId, newStatus);
+
+      // ריענון מיידי של המודאל אם הוא פתוח כרגע
+      const modal = document.getElementById('orderModal');
+      if (modal && !modal.classList.contains('hidden')) {
+        openOrderDetails(orderId);
+      }
+    }
+
+    // תזמון מחיקה מהמטמון לעוד 60 יום
+    function markOrderForCacheExpiry(orderId) {
+      const cacheKey = `order_items_${orderId}`;
+      const rawData = localStorage.getItem(cacheKey);
+
+      if (rawData) {
+        try {
+          const parsed = JSON.parse(rawData);
+          // חישוב מועד תפוגה: עכשיו + 60 יום
+          const expiresAt = Date.now() + (60 * 24 * 60 * 60 * 1000);
+
+          const payload = {
+            data: parsed.data || parsed,
+            expiresAt: expiresAt
+          };
+
+          localStorage.setItem(cacheKey, JSON.stringify(payload));
+        } catch (e) {
+          console.error('Error scheduling cache expiry:', e);
+        }
+      }
+    }
+
+    // ניקוי אוטומטי של הזמנות שעברו 60 יום
+    function cleanupExpiredCache() {
+      const now = Date.now();
+      const keysToRemove = [];
+
+      for (let i = 0; i < localStorage.length; i++) {
+        const key = localStorage.key(i);
+        if (key && key.startsWith('order_items_')) {
+          try {
+            const item = JSON.parse(localStorage.getItem(key));
+            if (item && item.expiresAt && now > item.expiresAt) {
+              keysToRemove.push(key);
+            }
+          } catch (e) { }
+        }
+      }
+
+      keysToRemove.forEach(k => localStorage.removeItem(k));
+    }
+
+    // הפעלת הניקוי בעליית הדף
+    cleanupExpiredCache();
+
+    // 6. פתיחת פרטי הזמנה + הערות
+    function openOrderDetails(orderId) {
+
+      // 1. סימון שכל ההערות נקראו
+      if (typeof markCommentsAsRead === 'function') {
+        markCommentsAsRead(orderId);
+      }
+
+      // 2. עדכון מיידי של הלוח
+      renderBoard();
+
+      currentSelectedOrderId = orderId;
+      const order = orders.find(o => String(o.id) === String(orderId)) || (window.archivedOrders && window.archivedOrders.find(o => String(o.id) === String(orderId)));
+      if (!order) return;
+
+      const custId = order.customerId || '';
+      const custName = order.clientName || '';
+      const customerTag = custId ? `[לקוח: ${custId}]` : '';
+
+      document.getElementById('modalOrderTitle').innerHTML = `
+    <div class="w-full text-right">
+      <div class="flex items-center gap-2 flex-wrap">
+        <span>${order.clientName} ${customerTag} (#${order.id})</span>
+        <button type="button" 
+                id="btnToggleCustomer"
+                data-cust-id="${custId}" 
+                data-cust-name="${custName}"
+                onclick="event.stopPropagation(); toggleCustomerAccordion();" 
+                class="text-xs bg-blue-50 hover:bg-blue-100 text-blue-700 px-2.5 py-1 rounded-full border border-blue-200 transition font-medium flex items-center gap-1.5 cursor-pointer shadow-xs active:scale-95"
+                title="הצג/הסתר פרטי לקוח">
+          <span>👤</span>
+          <span>פרטי לקוח</span>
+          <span id="custAccordionArrow" class="text-[10px] inline-block transition-transform duration-200">▼</span>
+        </button>
+      </div>
+
+      <!-- אזור מתרחב (Accordion) -->
+      <div id="customerDetailsAccordion" 
+           class="hidden mt-2 p-3 bg-slate-50 border border-slate-200 rounded-xl text-xs font-normal text-slate-700 transition-all duration-200">
+        <div id="customerAccordionContent">
+          <div class="text-slate-400 py-1 text-center">טוען נתונים...</div>
+        </div>
+      </div>
+    </div>
+  `;
+      document.getElementById('orderModal').dataset.orderId = order.id;
+      document.getElementById('modalOrderSubtitle').textContent = `תאריך קליטה: ${new Date(order.createdAt).toLocaleDateString('he-IL')}`;
+
+      // --- עדכון תגי המידע במודאל ---
+      const packages = order.packagesCount || 1;
+      const hasLinked = Boolean(order.linkedOrderId || (Array.isArray(order.linkedOrderIds) && order.linkedOrderIds.length > 0));
+      const suppliedByHtml = renderDeliveryBadge(order.deliveryInfo || order.suppliedBy);
+      const archiveDate = order.archivedAt ? new Date(order.archivedAt).toLocaleDateString('he-IL') : null;
+
+      // סופק ע"י
+      const suppliedEl = document.getElementById('modalSuppliedBy');
+      if (suppliedEl) {
+        suppliedEl.innerHTML = `<span class="flex items-center gap-1">🚚 סופק: ${suppliedByHtml}</span>`;
+      }
+
+      // מספר חבילות
+      const pkgEl = document.getElementById('modalPackages');
+      if (pkgEl) pkgEl.textContent = `📦 ${packages} חב'`;
+
+      // הזמנה מקושרת
+      const linkedEl = document.getElementById('modalLinkedBadge');
+      if (linkedEl) {
+        if (hasLinked) {
+          const rawLinked = order.linkedOrderId || (Array.isArray(order.linkedOrderIds) ? order.linkedOrderIds.join(',') : '');
+          const linkedList = String(rawLinked).split(',').map(s => s.trim()).filter(Boolean);
+
+          linkedEl.className = 'flex items-center gap-1.5 flex-wrap';
+          linkedEl.onclick = null;
+          linkedEl.innerHTML = linkedList.map(targetId => `
+        <button 
+          type="button" 
+          onclick="openOrderDetails('${targetId}')" 
+          class="bg-red-500 hover:bg-red-600 text-white font-bold px-2.5 py-0.5 rounded cursor-pointer transition shadow-xs flex items-center gap-1 text-xs"
+          title="לחץ למעבר להזמנה #${targetId}"
+        >
+          <span>🔗</span>
+          <span>מקושרת #${targetId} (מעבר)</span>
+        </button>
+      `).join('');
+        } else {
+          linkedEl.className = 'bg-slate-200 text-slate-400 px-2 py-0.5 rounded font-medium text-xs';
+          linkedEl.textContent = '🔗 ללא קישור';
+          linkedEl.onclick = null;
+          linkedEl.innerHTML = '🔗 ללא קישור';
+        }
+      }
+
+      // תאריך משלוח / ארכיון
+      const archiveEl = document.getElementById('modalArchiveDate');
+      if (archiveEl) {
+        if (archiveDate) {
+          archiveEl.classList.remove('hidden');
+          archiveEl.textContent = `📅 משלוח: ${archiveDate}`;
+        } else {
+          archiveEl.classList.add('hidden');
+        }
+      }
+
+      // שם סוכן
+      if (order.agentName) {
+        document.getElementById('modalOrderSubtitle').textContent += ` | סוכן: ${order.agentName}`;
+      }
+
+      // כפתורי פעולה
+      const agentActionContainer = document.getElementById('modalAgentActionContainer');
+      if (agentActionContainer) {
+        if (order.agentPhone || order.agentName) {
+          agentActionContainer.innerHTML = `
+        <button 
+          type="button" 
+          onclick="contactAgent('${order.id}')" 
+          class="inline-flex items-center gap-1.5 px-3 py-1.5 bg-emerald-600 hover:bg-emerald-700 text-white rounded-lg text-xs font-semibold shadow-xs transition"
+        >
+          <span>💬</span>
+          <span>פנה לסוכן (${order.agentName || 'וואטסאפ'})</span>
+        </button>
+        <button 
+          type="button" 
+          onclick="openDeliveryPrompt('${order.id}')" 
+          class="inline-flex items-center gap-1.5 px-3 py-1.5 bg-blue-600 hover:bg-blue-700 text-white rounded-lg text-xs font-semibold shadow-xs transition cursor-pointer"
+          title="הוצא הזמנה זו מהלוח והעבר לארכיון"
+        >
+          <span>✓</span>
+          <span>הוצא מהלוח</span>
+        </button>
+      `;
+        } else {
+          agentActionContainer.innerHTML = `
+        <button 
+          type="button" 
+          onclick="openDeliveryPrompt('${order.id}');" 
+          class="inline-flex items-center gap-1.5 px-3 py-1.5 bg-blue-600 hover:bg-blue-700 text-white rounded-lg text-xs font-semibold shadow-xs transition cursor-pointer"
+          title="הוצא הזמנה זו מהלוח והעבר לארכיון"
+        >
+          <span>✓</span>
+          <span>הוצא מהלוח</span>
+        </button>
+      `;
+        }
+      }
+
+      // תפריט שלבים
+      const modalStatusContainer = document.getElementById('modalStatusSelectContainer');
+      if (modalStatusContainer) {
+        modalStatusContainer.innerHTML = `
+      <select 
+        onchange="onSelectStatusChange('${order.id}', this.value)"
+        class="w-full bg-slate-50 hover:bg-slate-100 border border-slate-300 hover:border-blue-500 text-xs font-bold text-slate-800 rounded-md py-1 px-2 outline-none transition cursor-pointer shadow-xs"
+      >
+        <option value="" disabled>בחר שלב...</option>
+        <option value="new" ${order.status === 'new' ? 'selected' : ''}>🆕 חדשה</option>
+        <option value="picking" ${order.status === 'picking' ? 'selected' : ''}>📦 בליקוט</option>
+        <option value="agent_wait" ${order.status === 'agent_wait' ? 'selected' : ''}>💬 ממתין לסוכן</option>
+        <option value="packing" ${order.status === 'packing' ? 'selected' : ''}>🔬 במעבדה</option>
+        <option value="ready" ${order.status === 'ready' ? 'selected' : ''}>🚚 למשלוח</option>
+        <option value="done" ${order.status === 'done' ? 'selected' : ''}>💳 לחיוב</option>
+        <option value="archived" ${order.status === 'archived' ? 'selected' : ''} class="text-rose-600 font-bold">❌ ביטול הזמנה</option>
+      </select>
+    `;
+      }
+
+      // טעינת פריטי ההזמנה (מטמון שרת עמודה O -> localStorage -> פנייה לשרת)
+      const docContainer = document.getElementById('modalDocContainer');
+      if (docContainer) {
+        const cacheKey = `order_items_${order.id}`;
+
+        // 1. עדיפות עליונה: מטמון שהגיע ישירות מהשרת בעמודה O
+        let serverCachedDoc = null;
+        if (order.cachedItems) {
+          serverCachedDoc = order.cachedItems.doc || (order.cachedItems.items ? order.cachedItems : null);
+        }
+
+        // 2. עדיפות שנייה: שמירה מקומית קודמת ב-localStorage
+        let localCachedDoc = null;
+        if (!serverCachedDoc) {
+          const rawLocal = localStorage.getItem(cacheKey);
+          if (rawLocal) {
+            try {
+              localCachedDoc = JSON.parse(rawLocal);
+            } catch (e) {
+              localCachedDoc = null;
+            }
+          }
+        }
+
+        const readyDoc = serverCachedDoc || localCachedDoc;
+
+        if (readyDoc) {
+          // הצגה מיידית ב-0 שניות ללא קריאת רשת!
+          renderOrderDocItems(order, readyDoc, docContainer);
+          localStorage.setItem(cacheKey, JSON.stringify(readyDoc));
+        } else {
+          // רשת ביטחון בלבד (אם זו הזמנה ישנה ללא מטמון)
+          docContainer.innerHTML = '<div class="text-xs text-blue-600 font-bold animate-pulse p-4 text-center">טוען נתוני הזמנה מרווחית...</div>';
+
+          fetch(`${API_URL}?key=${SYSTEM_KEY}&pdfOrderId=${order.id}`)
+            .then(res => res.json())
+            .then(res => {
+              const doc = res.doc || res;
+              order.cachedItems = doc;
+              localStorage.setItem(cacheKey, JSON.stringify(doc));
+              renderOrderDocItems(order, doc, docContainer);
+            })
+            .catch(err => {
+              console.error('Error fetching doc details:', err);
+              docContainer.innerHTML = '<div class="text-xs text-rose-500 font-bold p-4 text-center">שגיאה בקריאת נתוני ההזמנה מהשרת</div>';
+            });
+        }
+      }
+
+      renderCommentsList(order.comments);
+      document.getElementById('orderModal').classList.remove('hidden');
+    }
+
+    // פונקציית עזר לרינדור טבלת הפריטים
+    function renderOrderDocItems(order, doc, docContainer) {
+      const rawItems = doc.items || doc.item_list || (doc.data && (doc.data.item_list || doc.data.items)) || [];
+      order.items = rawItems;
+
+      if (!rawItems || rawItems.length === 0) {
+        docContainer.innerHTML = '<div class="text-xs text-slate-500 font-medium p-4 text-center">לא נמצאו פריטים בהזמנה זו</div>';
+        return;
+      }
+
+      const isCheckableStage = (order.status === 'picking' || order.status === 'packing');
+
+      let overrides = order.itemOverrides || {};
+      if (typeof overrides === 'string') {
+        try { overrides = JSON.parse(overrides); } catch (e) { overrides = {}; }
+      }
+
+      let rowsHtml = '';
+      rawItems.forEach((item, idx) => {
+        const itemKey = getItemKey(item, idx);
+        const itemOverride = overrides[itemKey] || {};
+
+        const isCollected = Boolean(itemOverride.collected);
+        const isCancelled = Boolean(itemOverride.cancelled);
+        const displayQty = itemOverride.qty !== undefined ? itemOverride.qty : (item.quantity || item.qty || 1);
+
+        const cat = item.catalogNum || item.item_id || item.catalog_number || '-';
+        const name = item.name || item.item_name || item.description || '-';
+
+        let rowClasses = 'border-b border-slate-100 transition-colors duration-150 ';
+        if (isCancelled) {
+          rowClasses += 'opacity-40 line-through bg-slate-100';
+        } else if (isCollected) {
+          rowClasses += 'bg-slate-900 text-white';
+        } else {
+          rowClasses += 'hover:bg-slate-50';
+        }
+
+        rowsHtml += `
+      <tr id="orderItemRow_${idx}" class="${rowClasses}">
+        <td class="p-2 text-center w-10">
+          <input 
+            type="checkbox" 
+            ${isCollected ? 'checked' : ''}
+            ${!isCheckableStage || isCancelled ? 'disabled class="cursor-not-allowed opacity-75"' : `onchange="toggleItemCollected(this, 'orderItemRow_${idx}', '${order.id}',${idx})" class="cursor-pointer accent-slate-900"`}
+            class="w-4 h-4 rounded"
+            title="${isCheckableStage ? 'סמן כהוכן/לוקט' : 'חיווי: פריט הוכן/לוקט'}"
+          />
+        </td>
+        <td class="p-2 text-right font-mono ${isCollected ? '!text-white' : 'text-slate-500'} text-xs">${cat}</td>
+        <td class="p-2 text-right font-medium ${isCollected ? '!text-white' : 'text-slate-800'} text-xs">${name}</td>
+        <td class="p-2 text-center font-bold ${isCollected ? '!text-white' : 'text-blue-600'} text-sm" id="itemQty_${idx}">${displayQty}</td>
+        <td class="p-2 text-center">
+          <div class="inline-flex items-center gap-1">
+            <button 
+              type="button" 
+              onclick="handleUpdateItemQuantity('${order.id}', ${idx})" 
+              title="עדכן כמות מנופקת"
+              class="px-2 py-0.5 bg-blue-50 hover:bg-blue-100 text-blue-700 border border-blue-200 rounded text-[11px] font-medium transition cursor-pointer"
+            >
+              ✏️ עדכן
+            </button>
+            <button 
+              type="button" 
+              onclick="handleCancelItem('${order.id}', ${idx})" 
+              title="ביטול פריט זה בהזמנה"
+              class="px-2 py-0.5 bg-rose-50 hover:bg-rose-100 text-rose-700 border border-rose-200 rounded text-[11px] font-medium transition cursor-pointer"
+            >
+              ❌ בטל
+            </button>
+          </div>
+        </td>
+        <td class="p-2 text-center">
+          <button 
+            type="button" 
+            onclick="contactAgent('${order.id}', ${idx})" 
+            title="שאלה לסוכן לגבי פריט זה"
+            class="px-2 py-1 bg-amber-50 hover:bg-amber-100 text-amber-700 border border-amber-200 rounded text-[11px] font-medium transition cursor-pointer"
+          >
+            בירור פריט
+          </button>
+        </td>
+      </tr>
+    `;
+      });
+
+      let cleanDocComments = (doc.comments || '')
+        .replace(/תודה שבחרתם[\s\S]*?כדי לשלול בעיות בזמן ההתקנה\.?/g, '')
+        .replace(/תודה שבחרתם\s*["״]לד לייט["״][\s\S]*?חשבון\s*188887\s*לד לייט ישראל בע["״]מ/g, '')
+        .replace(/1\.\s*מוצרים בהזמנה מיוחדת\/מעבדה[\s\S]*?כדי לשלול בעיות בזמן ההתקנה\.?/g, '')
+        .trim();
+
+      docContainer.innerHTML = `
+    <div class="w-full h-full p-4 overflow-auto flex flex-col bg-white text-slate-800" dir="rtl">
+      <div class="flex justify-between items-start border-b pb-3 mb-3">
+        <div>
+          <h2 class="text-base font-bold text-slate-900">הזמנת לקוח #${doc.id || order.id}</h2>
+          <div class="text-xs text-slate-500">תאריך: ${doc.date || order.createdAt}</div>
+        </div>
+        <div class="text-left">
+          <span class="bg-blue-50 text-blue-700 text-xs font-bold px-2 py-1 rounded">סה"כ: ₪${Number(doc.amount || order.amount || 0).toLocaleString()}</span>
+        </div>
+      </div>
+
+      <div class="flex-1 overflow-auto">
+        <table class="w-full text-right border-collapse">
+          <thead>
+            <tr class="bg-slate-50 text-slate-500 text-xs border-b">
+              <th class="p-2 text-center w-10">סטטוס</th>
+              <th class="p-2">מק"ט</th>
+              <th class="p-2">שם פריט</th>
+              <th class="p-2 text-center">כמות</th>
+              <th class="p-2 text-center">פעולות מחסן</th>
+              <th class="p-2 text-center">פנייה לסוכן</th>
+            </tr>
+          </thead>
+          <tbody>
+            ${rowsHtml}
+          </tbody>
+        </table>
+      </div>
+
+      ${cleanDocComments ? `
+        <div class="mt-3 p-2 bg-amber-50 border border-amber-200 rounded text-xs text-amber-800 whitespace-pre-line">
+          <strong>הערות במסמך:</strong><br>${cleanDocComments}
+        </div>
+      ` : ''}
+    </div>
+  `;
+    }
+
+    // סימון פריט כהוכן/לוקט (רקע שחור וכיתוב לבן) ושמירה לשרת
+    function toggleItemCollected(checkbox, rowId, orderId, itemIdx) {
+      const row = document.getElementById(rowId);
+      if (!row) return;
+
+      const isChecked = checkbox.checked;
+
+      // 1. שינוי עיצובי מיידי בשורה
+      if (isChecked) {
+        row.classList.add('bg-slate-900', 'text-white');
+        row.classList.remove('hover:bg-slate-50');
+        row.querySelectorAll('td, span, div, strong').forEach(el => {
+          el.classList.add('!text-white');
+        });
+      } else {
+        row.classList.remove('bg-slate-900', 'text-white');
+        row.classList.add('hover:bg-slate-50');
+        row.querySelectorAll('td, span, div, strong').forEach(el => {
+          el.classList.remove('!text-white');
+        });
+      }
+
+      const order = orders.find(o => String(o.id) === String(orderId))
+        || (window.archivedOrders && window.archivedOrders.find(o => String(o.id) === String(orderId)));
+      if (!order || !order.items || !order.items[itemIdx]) return;
+
+      const item = order.items[itemIdx];
+      const itemKey = getItemKey(item, itemIdx);
+
+      if (!order.itemOverrides) order.itemOverrides = {};
+      if (!order.itemOverrides[itemKey]) order.itemOverrides[itemKey] = {};
+
+      order.itemOverrides[itemKey].collected = isChecked;
+
+      // 3. שליחה לעמודה M ב-Google Sheets
+      syncItemOverridesToServer(orderId);
+    }
+
+    // עדכון כמות ידני לפריט
+    async function handleUpdateItemQuantity(orderId, itemIndex) {
+      const order = orders.find(o => String(o.id) === String(orderId)) || (window.archivedOrders && window.archivedOrders.find(o => String(o.id) === String(orderId)));
+      if (!order || !order.items || !order.items[itemIndex]) return;
+
+      const item = order.items[itemIndex];
+      const itemName = item.name || item.item_name || item.description || 'פריט';
+      const currentQty = item.quantity || item.qty || 1;
+
+      const newQtyInput = prompt(`עדכון כמות עבור:\n"${itemName}"\n\nהזן כמות מנופקת חדשה:`, currentQty);
+      if (newQtyInput === null) return; // המשתמש לחץ ביטול
+
+      const newQty = parseFloat(newQtyInput.trim());
+      if (isNaN(newQty) || newQty < 0) {
+        alert('נא להזין כמות תקינה (מספר חיובי או 0)');
+        return;
+      }
+
+      const itemKey = getItemKey(item, itemIndex);
+
+      // וידוא ש-itemOverrides מפורסר כאובייקט
+      if (!order.itemOverrides || typeof order.itemOverrides === 'string') {
+        try {
+          order.itemOverrides = order.itemOverrides ? JSON.parse(order.itemOverrides) : {};
+        } catch (e) {
+          order.itemOverrides = {};
+        }
+      }
+
+      // וידוא שהמפתח הספציפי קיים כאובייקט
+      if (!order.itemOverrides[itemKey] || typeof order.itemOverrides[itemKey] !== 'object') {
+        order.itemOverrides[itemKey] = {};
+      }
+
+      // 1. עדכון אובייקט הפריט
+      item.quantity = newQty;
+      item.qty = newQty;
+
+      // 2. עדכון ויזואלי מהיר בטבלה
+      const qtyEl = document.getElementById(`itemQty_${itemIndex}`);
+      if (qtyEl) qtyEl.textContent = newQty;
+
+      const rowEl = document.getElementById(`orderItemRow_${itemIndex}`);
+      if (rowEl) {
+        if (newQty === 0) {
+          rowEl.classList.add('bg-rose-50/60', 'opacity-60', 'line-through');
+        } else {
+          rowEl.classList.remove('bg-rose-50/60', 'opacity-60', 'line-through');
+        }
+      }
+
+      // 3. תיעוד אוטומטי בהערות ההזמנה
+      const logText = newQty === 0
+        ? `⚠️ פריט בוטל במחסן: ${itemName}`
+        : `✏️ עודכנה כמות לפריט "${itemName}": מ-${currentQty} ל-${newQty}`;
+
+      saveAutomaticItemComment(orderId, logText);
+      syncItemOverridesToServer(orderId);
+    }
+
+    // יצירת מפתח זיהוי יציב וייחודי לפריט (גם למלל חופשי ללא מק"ט)
+    function getItemKey(item, idx) {
+      const cat = String(item.catalogNum || item.item_id || item.catalog_number || item.id || '').trim();
+
+      // אם יש מק"ט ממשי (שאינו ריק, אינו מקף ואינו 0)
+      if (cat && cat !== '-' && cat !== '0') {
+        return `cat_${cat}`;
+      }
+
+      // אם מדובר במלל חופשי/שורה ללא מק"ט - מזהים לפי אינדקס + חיתוך שם הפריט
+      const safeName = String(item.name || item.item_name || item.description || 'free_text')
+        .trim()
+        .slice(0, 20)
+        .replace(/\s+/g, '_');
+
+      return `idx_${idx}_${safeName}`;
+    }
+
+    // ביטול מהיר של פריט ושמירה לעמודה M בשרת
+    async function handleCancelItem(orderId, itemIndex) {
+      const order = orders.find(o => String(o.id) === String(orderId))
+        || (window.archivedOrders && window.archivedOrders.find(o => String(o.id) === String(orderId)));
+      if (!order || !order.items || !order.items[itemIndex]) return;
+
+      const item = order.items[itemIndex];
+      const itemName = item.name || item.item_name || item.description || 'פריט';
+      const currentQty = item.quantity || item.qty || 1;
+
+      if (!confirm(`האם אתה בטוח שברצונך לבטל את הפריט:\n"${itemName}"?`)) return;
+
+      // 1. הפקת מזהה ייחודי לפריט (תומך גם במלל חופשי ללא מק"ט)
+      const itemKey = getItemKey(item, itemIndex);
+
+      // וידוא פרסור אובייקט
+      if (!order.itemOverrides || typeof order.itemOverrides === 'string') {
+        try {
+          order.itemOverrides = order.itemOverrides ? JSON.parse(order.itemOverrides) : {};
+        } catch (e) {
+          order.itemOverrides = {};
+        }
+      }
+
+      if (!order.itemOverrides[itemKey] || typeof order.itemOverrides[itemKey] !== 'object') {
+        order.itemOverrides[itemKey] = {};
+      }
+
+      // 2. עדכון המבנה בזיכרון המקומי
+      order.itemOverrides[itemKey].qty = 0;
+      order.itemOverrides[itemKey].cancelled = true;
+
+      item.quantity = 0;
+      item.qty = 0;
+
+      // 3. סימון ויזואלי מהיר בשורה
+      const qtyEl = document.getElementById(`itemQty_${itemIndex}`);
+      if (qtyEl) qtyEl.textContent = '0';
+
+      const rowEl = document.getElementById(`orderItemRow_${itemIndex}`);
+      if (rowEl) {
+        rowEl.classList.add('bg-rose-50/60', 'opacity-60', 'line-through');
+        const checkbox = rowEl.querySelector('input[type="checkbox"]');
+        if (checkbox) checkbox.disabled = true;
+      }
+
+      // 4. תיעוד אוטומטי בהערות ההזמנה
+      saveAutomaticItemComment(orderId, `❌ בוטל פריט במחסן: ${itemName} (היה ${currentQty})`);
+
+      // 5. סנכרון פיזי לעמודה M ב-Google Sheets
+      syncItemOverridesToServer(orderId);
+    }
+
+    // פונקציית עזר להוספת ההערה לרשימת ההערות ולסנכרון מול השרת
+    function saveAutomaticItemComment(orderId, text) {
+      const order = orders.find(o => String(o.id) === String(orderId));
+      if (!order) return;
+
+      if (!Array.isArray(order.comments)) {
+        order.comments = [];
+      }
+
+      const newComment = {
+        id: Date.now().toString(),
+        text: text,
+        author: 'מחסן',
+        date: new Date().toISOString(),
+        read: true
+      };
+
+      order.comments.push(newComment);
+
+      // רענון רשימת ההערות בחלון אם פתוח
+      if (typeof renderCommentsList === 'function') {
+        renderCommentsList(order.comments);
+      }
+
+      // שליחה ועדכון בשרת (Google Apps Script)
+      fetch(API_URL, {
+        method: 'POST',
+        headers: { 'Content-Type': 'text/plain;charset=utf-8' },
+        body: JSON.stringify({
+          key: SYSTEM_KEY,
+          orderId: String(orderId),
+          comments: order.comments
+        })
+      }).then(res => res.text())
+        .then(msg => console.log('הערת פריט סונכרנה לשרת:', msg))
+        .catch(err => console.error('שגיאה בשמירת הערת פריט בשרת:', err));
+    }
+
+    // שמירת עדכוני פריטים (ביטול, כמות, סימון ליקוט/מעבדה) בעמודה M בשרת
+    function syncItemOverridesToServer(orderId) {
+      const order = orders.find(o => String(o.id) === String(orderId))
+        || (window.archivedOrders && window.archivedOrders.find(o => String(o.id) === String(orderId)));
+      if (!order) return;
+
+      // פיענוח בטוח: אם זה הגיע כמחרוזת, הופכים לאובייקט לפני השליחה
+      let overrides = order.itemOverrides || {};
+      if (typeof overrides === 'string') {
+        try {
+          overrides = JSON.parse(overrides);
+          if (typeof overrides === 'string') overrides = JSON.parse(overrides); // פריקת קידוד כפול ישן
+        } catch (e) {
+          overrides = {};
+        }
+      }
+
+      fetch(API_URL, {
+        method: 'POST',
+        headers: { 'Content-Type': 'text/plain;charset=utf-8' },
+        body: JSON.stringify({
+          key: SYSTEM_KEY,
+          orderId: String(orderId),
+          itemOverrides: overrides
+        })
+      })
+        .then(res => res.json())
+        .then(data => console.log('itemOverrides סונכרן בהצלחה לעמודה M:', data))
+        .catch(err => console.error('שגיאה בסנכרון שינויי פריטים לשרת:', err));
+    }
+
+    function renderCommentsList(comments) {
+      // הגנה: אם זה לא מערך, ממירים למערך אובייקטים תקין או למערך ריק
+      if (!Array.isArray(comments)) {
+        if (typeof comments === 'string' && comments.trim()) {
+          comments = [{ author: 'מערכת', time: '', text: comments }];
+        } else {
+          comments = [];
+        }
+      }
+
+
+      const container = document.getElementById('modalCommentsList');
+      if (comments.length === 0) {
+        container.innerHTML = `<p class="text-xs text-slate-400 text-center mt-6">אין עדיין הערות להזמנה זו</p>`;
+        return;
+      }
+      container.innerHTML = comments.map(c => `
+        <div class="bg-slate-50 p-2.5 rounded-lg border border-slate-100 text-xs">
+          <div class="flex justify-between font-bold text-slate-600 mb-1">
+            <span>${c.author}</span>
+            <span class="text-[10px] font-normal text-slate-400">${c.time}</span>
+          </div>
+          <div class="text-slate-700">${c.text}</div>
+        </div>
+      `).join('');
+    }
+
+    async function handleAddComment() {
+      // 1. איתור ה-ID של ההזמנה הנוכחית מתוך המשתנה של המודאל
+      const modal = document.getElementById('orderModal');
+      const id = modal ? modal.dataset.orderId : null;
+
+      if (!id) {
+        console.error('לא נמצא מזהה הזמנה פעיל בחלון המודאל');
+        return;
+      }
+
+      // 2. איתור שדה הטקסט של ההערה
+      const input = document.getElementById('newCommentInput') ||
+        document.getElementById('commentInput') ||
+        document.getElementById('modalCommentInput') ||
+        document.querySelector('#commentsModal textarea, #commentsModal input[type="text"]');
+
+      const text = input ? input.value.trim() : '';
+      if (!text) {
+        alert('נא להזין טקסט להערה');
+        return;
+      }
+
+      // 3. איתור ההזמנה במערך
+      const order = orders.find(o => String(o.id) === String(id));
+      if (!order) {
+        console.error('הזמנה לא נמצאה במערך orders:', id);
+        return;
+      }
+
+      if (!Array.isArray(order.comments)) {
+        order.comments = order.comments ? [{ author: 'מערכת', time: '', text: String(order.comments) }] : [];
+      }
+
+      const now = new Date();
+      const timeStr = `${now.getHours()}:${String(now.getMinutes()).padStart(2, '0')} ${now.toLocaleDateString('he-IL')}`;
+
+      // 4. הוספת הערת מחסן
+      const newComment = {
+        author: 'מחסן',
+        text: text,
+        time: timeStr
+      };
+
+      order.comments.push(newComment);
+      if (input) input.value = '';
+
+      // 5. רענון תצוגת ההערות במודאל ובמסך מיד
+      if (typeof renderModalComments === 'function') {
+        renderModalComments(order.comments);
+      } else if (typeof renderCommentsList === 'function') {
+        renderCommentsList(order.comments);
+      }
+      if (typeof renderBoard === 'function') {
+        renderBoard();
+      }
+
+      // 6. שליחה תקינה לשרת (כולל action ו-headers)
+      try {
+        const payload = {
+          key: SYSTEM_KEY,
+          action: 'addComment',
+          orderId: String(id),
+          status: order.status,
+          agentName: order.agentName || '',
+          agentPhone: order.agentPhone || '',
+          comments: order.comments,
+          deliveryInfo: order.deliveryInfo || ''
+        };
+
+        const res = await fetch(API_URL, {
+          method: 'POST',
+          headers: {
+            'Content-Type': 'text/plain;charset=utf-8'
+          },
+          body: JSON.stringify(payload)
+        });
+
+        const result = await res.json();
+        if (!result.success) {
+          console.warn('השרת החזיר שגיאה בשמירת ההערה:', result);
+          alert('ההערה לא נשמרה בגיליון, נסה שוב');
+        }
+      } catch (err) {
+        console.error('שגיאה בשמירת הערה בשרת:', err);
+        alert('שגיאת תקשורת בשמירת ההערה');
+      }
+    }
+
+    function closeModal() {
+      if (currentSelectedOrderId && typeof markCommentsAsRead === 'function') {
+        markCommentsAsRead(currentSelectedOrderId);
+      }
+      document.getElementById('orderModal').classList.add('hidden');
+      currentSelectedOrderId = null;
+    }
+
+    function openNewOrderModal() {
+      const client = prompt('הזן שם לקוח להזמנה חדשה:');
+      if (client) {
+        const newOrder = {
+          id: (Math.floor(Math.random() * 900) + 100).toString(),
+          clientName: client,
+          createdAt: new Date().toISOString(),
+          status: 'new',
+          imageUrl: 'https://placehold.co/600x800/white/333?text=' + encodeURIComponent(client),
+          comments: []
+        };
+        orders.push(newOrder);
+        renderBoard();
+      }
+    }
+
+
+
+    // טעינת ההזמנות מהגיליון
+    async function loadOrdersFromServer() {
+      if (sessionStorage.getItem('warehouse_authenticated') !== 'true') {
+        return;
+      }
+      try {
+        const res = await fetch(`${API_URL}?key=${SYSTEM_KEY}`);
+        const data = await res.json();
+        const allOrders = data.orders || [];
+
+        // סינון הזמנות פעילות
+        const incomingActiveOrders = allOrders.filter(o => o.status !== 'archived');
+
+        // סנכרון חכם: אם אין שינוי - שום כרטיס לא ייבנה מחדש
+        syncOrdersSmart(incomingActiveOrders);
+
+      } catch (err) {
+        console.error('שגיאה בסנכרון נתונים מהשרת:', err);
+      }
+    }
+
+    // שמירת שינוי סטטוס/סוכן בגיליון
+    async function updateOrderOnServer(orderId, newStatus, deliveryInfo = '') {
+      const order = orders.find(o => String(o.id) === String(orderId));
+      try {
+        const res = await fetch(API_URL, {
+          method: 'POST',
+          body: JSON.stringify({
+            key: SYSTEM_KEY,
+            orderId: orderId,
+            status: newStatus,
+            agentName: order ? order.agentName : '',
+            agentPhone: order ? order.agentPhone : '',
+            comments: order ? order.comments : [],
+            deliveryInfo: deliveryInfo || (order ? order.deliveryInfo : '')
+          })
+        });
+        const result = await res.json();
+        if (!result.success) {
+          console.warn('השרת החזיר שגיאה בעדכון:', result);
+        }
+
+      } catch (err) {
+        console.error('שגיאה בעדכון הזמנה בשרת:', err);
+        alert('העדכון נכשל, מומלץ לרענן את הדף');
+      }
+
+    }
+
+
+    // פונקציית רענון ידני בלחיצה על הכפתור - רזה ובודקת שינויים בלבד
+    window.manualSync = async function () {
+      if (sessionStorage.getItem('warehouse_authenticated') !== 'true') {
+        return;
+      }
+      const btn = document.getElementById('btnManualSync');
+      const icon = document.getElementById('syncIcon');
+
+      if (btn) btn.disabled = true;
+      if (icon) icon.classList.add('animate-spin');
+
+      try {
+        // 1. פנייה לסנכרון מהיר
+        const res = await fetch(`${API_URL}?key=${SYSTEM_KEY}&forceSync=true&type=active`);
+        const data = await res.json();
+
+        if (data && Array.isArray(data.orders)) {
+          // בדיקה חכמה: רינדור יתבצע אך ורק אם נוספה הזמנה או השתנה סטטוס/הערה
+          const hasChanges = syncOrdersSmart(data.orders);
+
+          if (!hasChanges) {
+            console.log('סנכרון יזום: אין שינויים בלוח');
+          }
+        } else {
+          // גיבוי: אם לא חזר מערך תקין, קריאה לטעינה הרגילה
+          await loadOrdersFromServer();
+        }
+      } catch (err) {
+        console.error('שגיאה ברענון יזום:', err);
+        await loadOrdersFromServer();
+      } finally {
+        if (btn) btn.disabled = false;
+        if (icon) icon.classList.remove('animate-spin');
+      }
+    };
+
+    function openSettingsModal() {
+      document.getElementById('settingsModal').classList.remove('hidden');
+      const statusEl = document.getElementById('tokenStatusText');
+      statusEl.textContent = 'בודק סטטוס מול השרת...';
+      statusEl.className = 'text-[11px] text-slate-400 mt-1';
+
+      fetch(`${API_URL}?key=${SYSTEM_KEY}&action=getSettings`)
+        .then(res => res.json())
+        .then(data => {
+          if (data.hasToken) {
+            statusEl.textContent = `✓ טוקן פעיל ומאובטח במערכת (${data.maskedToken})`;
+            statusEl.className = 'text-[11px] text-emerald-600 font-medium mt-1';
+          } else {
+            statusEl.textContent = '⚠ לא מוגדר טוקן במערכת!';
+            statusEl.className = 'text-[11px] text-rose-500 font-medium mt-1';
+          }
+        })
+        .catch(() => {
+          statusEl.textContent = 'שגיאה בבדיקת סטטוס הטוקן מול השרת';
+          statusEl.className = 'text-[11px] text-rose-500 font-medium mt-1';
+        });
+    }
+
+    function closeSettingsModal() {
+      document.getElementById('settingsModal').classList.add('hidden');
+      document.getElementById('inputRivhitToken').value = '';
+    }
+
+    function saveSettings() {
+      const token = document.getElementById('inputRivhitToken').value.trim();
+      if (!token) {
+        alert('אנא הזן טוקן לעדכון');
+        return;
+      }
+
+      const btn = document.getElementById('btnSaveSettings');
+      btn.disabled = true;
+      btn.textContent = 'שומר...';
+
+      fetch(API_URL, {
+        method: 'POST',
+        body: JSON.stringify({
+          key: SYSTEM_KEY,
+          action: 'saveSettings',
+          rivhitToken: token
+        })
+      })
+        .then(res => res.json())
+        .then(data => {
+          if (data.success) {
+            alert('הטוקן נשמר בהצלחה בשרת!');
+            closeSettingsModal();
+          } else {
+            alert('שגיאה: ' + (data.error || 'השמירה נכשלה'));
+          }
+        })
+        .catch(err => {
+          console.error(err);
+          alert('שגיאת תקשורת בשמירת ההגדרות');
+        })
+        .finally(() => {
+          btn.disabled = false;
+          btn.textContent = 'שמור הגדרות';
+        });
+    }
+
+    // עדכון המספר על תג כפתור הארכיון בכל פעם שמרנדרים את הלוח
+    function updateArchiveBadge() {
+      const archivedCount = orders.filter(o => o.status === 'archived').length;
+      const badge = document.getElementById('archiveCountBadge');
+      if (badge) badge.textContent = archivedCount;
+    }
+
+    // פתיחת מודאל הארכיון ושליפת נתונים עדכניים מהגיליון
+    async function openArchiveModal() {
+      const modal = document.getElementById('archiveModal');
+      const searchInput = document.getElementById('archiveSearchInput');
+      const sortSelect = document.getElementById('archiveSortSelect');
+
+      if (modal) modal.classList.remove('hidden');
+      if (searchInput) searchInput.value = '';
+      if (sortSelect) sortSelect.value = 'none';
+
+      // הצגת הודעת טעינה בתוך המיכל של רשימת הארכיון
+      const container = document.getElementById('archiveListContainer') || document.getElementById('archiveOrdersList');
+      if (container) {
+        container.innerHTML = `
+      <div class="p-8 text-center text-slate-400 text-xs flex items-center justify-center gap-2">
+        <span class="animate-spin text-sm">⟳</span> טוען הזמנות מהארכיון...
+      </div>
+    `;
+      }
+
+      try {
+        // פנייה ייעודית לגיליון למשיכת כל מה שמוגדר כארכיון
+        const res = await fetch(`${API_URL}?key=${SYSTEM_KEY}&type=archived`);
+        const data = await res.json();
+
+        // שמירת הנתונים במערך הארכיון וציור הרשימה
+        window.archivedOrders = data.orders || [];
+        renderArchiveList(window.archivedOrders);
+      } catch (err) {
+        console.error('שגיאה בטעינת נתוני ארכיון:', err);
+        if (container) {
+          container.innerHTML = `<div class="p-6 text-center text-rose-500 text-xs font-medium">שגיאה בשליפת נתוני ארכיון מהשרת</div>`;
+        }
+      }
+    }
+
+    // סגירת מודאל הארכיון
+    function closeArchiveModal() {
+      document.getElementById('archiveModal').classList.add('hidden');
+    }
+
+    // החזרת הזמנה מהארכיון ללוח הפעיל (מוכן לחיוב)
+    async function unarchiveOrder(orderId, event) {
+      if (event) event.stopPropagation();
+      if (!confirm(`להחזיר את הזמנה #${orderId} ללוח הפעיל?`)) return;
+
+      const order = orders.find(o => o.id === orderId);
+      if (order) order.status = 'done';
+
+      renderBoard();
+      renderArchiveList();
+      updateArchiveBadge();
+
+      await updateOrderOnServer(orderId, 'done');
+    }
+
+    // רינדור רשימת הארכיון עם חיפוש ומיון
+    function renderArchiveList() {
+      const container = document.getElementById('archiveListContainer');
+      const searchVal = (document.getElementById('archiveSearchInput').value || '').trim().toLowerCase();
+      const sortVal = document.getElementById('archiveSortSelect') ? document.getElementById('archiveSortSelect').value : 'date-desc';
+
+      // 1. סינון הזמנות בארכיון בלבד
+      let list = [...(window.archivedOrders || [])];
+
+      // 2. סינון לפי חיפוש (מספר, שם לקוח, או תאריך)
+      if (searchVal) {
+        list = list.filter(o => {
+          const idMatch = String(o.id || '').toLowerCase().includes(searchVal);
+          const nameMatch = String(o.clientName || '').toLowerCase().includes(searchVal);
+          const dateStr = o.createdAt ? new Date(o.createdAt).toLocaleDateString('he-IL') : '';
+          const dateMatch = dateStr.includes(searchVal);
+          return idMatch || nameMatch || dateMatch;
+        });
+      }
+
+      // 3. מיון (ברירת מחדל: הכי חדש למעלה)
+      if (sortVal === 'amount-desc') {
+        list.sort((a, b) => (Number(b.totalAmount || b.Amount) || 0) - (Number(a.totalAmount || a.Amount) || 0));
+      } else if (sortVal === 'amount-asc') {
+        list.sort((a, b) => (Number(a.totalAmount || a.Amount) || 0) - (Number(b.totalAmount || b.Amount) || 0));
+      } else if (sortVal === 'date-asc') {
+        // מהישן לחדש (אם יש אופציה כזו ב-Select)
+        list.sort((a, b) => {
+          const timeA = new Date(a.archivedAt || a.createdAt || 0).getTime();
+          const timeB = new Date(b.archivedAt || b.createdAt || 0).getTime();
+          return timeA - timeB;
+        });
+      } else {
+        // ברירת מחדל / date-desc: הכי חדש למעלה
+        list.sort((a, b) => {
+          const timeA = new Date(a.archivedAt || a.createdAt || 0).getTime();
+          const timeB = new Date(b.archivedAt || b.createdAt || 0).getTime();
+          return timeB - timeA;
+        });
+      }
+
+      // 4. הצגה
+      if (list.length === 0) {
+        container.innerHTML = `
+      <div class="text-center py-12 text-slate-400 text-xs">
+        <span class="text-3xl block mb-2">📭</span>
+        ${searchVal ? 'לא נמצאו הזמנות התואמות לחיפוש' : 'אין הזמנות בארכיון'}
+      </div>
+    `;
+        return;
+      }
+
+      container.innerHTML = list.map(o => {
+        const formattedDate = o.createdAt ? new Date(o.createdAt).toLocaleDateString('he-IL') : '—';
+        const amountVal = Number(o.totalAmount || o.Amount) || 0;
+        const formattedAmount = amountVal > 0 ? `₪${amountVal.toLocaleString('he-IL')}` : '';
+
+        return `
+      <div class="bg-white p-3.5 rounded-xl border border-slate-200/80 shadow-sm hover:shadow transition flex items-center justify-between gap-4">
+        <div class="flex items-center gap-3 cursor-pointer flex-1" onclick="openOrderDetails('${o.id}')">
+          <div class="w-9 h-9 rounded-lg bg-slate-100 flex items-center justify-center font-bold text-slate-600 text-xs shrink-0">
+            #${o.id}
+          </div>
+          <div>
+            <div class="text-xs font-bold text-slate-800 flex items-center gap-2">
+              <span>${o.clientName}</span>
+              ${formattedAmount ? `<span class="bg-emerald-50 text-emerald-700 text-[11px] px-2 py-0.5 rounded-md font-semibold border border-emerald-100">${formattedAmount}</span>` : ''}
+            </div>
+            <div class="text-[11px] text-slate-400 mt-0.5">
+              <span>תאריך: ${formattedDate}</span>
+              ${o.agentName ? `<span class="mr-2">| סוכן: ${o.agentName}</span>` : ''}
+            </div>
+          </div>
+        </div>
+
+        <div class="flex items-center gap-2 shrink-0">
+          <button onclick="openOrderDetails('${o.id}')" class="text-xs bg-slate-50 hover:bg-slate-100 text-slate-600 px-2.5 py-1.5 rounded-lg border border-slate-200 transition">
+            פרטי הזמנה
+          </button>
+          <button onclick="unarchiveOrder('${o.id}', event)" class="text-xs bg-blue-50 hover:bg-blue-100 text-blue-700 px-2.5 py-1.5 rounded-lg border border-blue-200 transition font-medium" title="החזר ללוח">
+            ↩ שחזר ללוח
+          </button>
+        </div>
+      </div>
+    `;
+      }).join('');
+    }
+
+    window.archiveOrder = async function (orderId, deliveryInfo = '') {
+      if (!confirm(`להעביר את הזמנה #${orderId} לארכיון?`)) return;
+
+      // 1. מעדכנים את הסטטוס בזיכרון במקום למחוק אותה
+      const order = orders.find(o => String(o.id) === String(orderId));
+      if (order) {
+        order.status = 'archived';
+        order.deliveryInfo = deliveryInfo;
+      }
+
+      // 2. מציירים מחדש את הלוח ומעדכנים את מונה הארכיון
+      renderBoard();
+      if (typeof updateArchiveBadge === 'function') {
+        updateArchiveBadge();
+      }
+
+      // 3. עדכון בשרת
+      try {
+        await updateOrderOnServer(orderId, 'archived', deliveryInfo);
+      } catch (err) {
+        console.error('שגיאה בעדכון ארכיון בשרת:', err);
+      }
+    };
+
+    window.contactAgent = async function (orderId, itemIndex = null) {
+      const order = orders.find(o => String(o.id) === String(orderId)) ||
+        (window.archivedOrders && window.archivedOrders.find(o => String(o.id) === String(orderId)));
+
+      if (!order) {
+        alert('ההזמנה לא נמצאה.');
+        return;
+      }
+
+      // 1. איתור הסוכן מלשונית Agents
+      const orderAgentId = String(order.agentId || '').trim();
+      const agent = agents.find(a => String(a.id).trim() === orderAgentId);
+
+      const agentName = agent ? agent.name : (order.agentName || 'סוכן');
+      let phone = agent ? agent.phone : '';
+
+      if (!phone) {
+        phone = prompt(`עבור הזמנה #${order.id} מוגדר Agent ID: "${orderAgentId || 'ריק'}".\nלא נמצא טלפון תואם בלשונית הסוכנים.\nהזן מספר נייד של הסוכן לשליחה:`);
+        if (!phone) return;
+      }
+
+      // 2. משיכת הפריטים דרך pdfOrderId בדיוק כמו במודאל
+      if (!order.items || !Array.isArray(order.items) || order.items.length === 0) {
+        try {
+          const res = await fetch(`${API_URL}?key=${SYSTEM_KEY}&pdfOrderId=${encodeURIComponent(order.id)}`);
+          const data = await res.json();
+          const doc = data.doc || data;
+          const rawItems = doc.items || doc.item_list || (doc.data && (doc.data.item_list || doc.data.items)) || [];
+          if (rawItems.length > 0) {
+            order.items = rawItems;
+          }
+        } catch (e) {
+          console.warn('שגיאה במשיכת פריטים:', e);
+        }
+      }
+
+      // 3. ניקוי מספר הטלפון לפורמט בינלאומי
+      let cleanPhone = String(phone).replace(/\D/g, '');
+      if (cleanPhone.startsWith('0')) {
+        cleanPhone = '972' + cleanPhone.substring(1);
+      } else if (!cleanPhone.startsWith('972') && (cleanPhone.length === 8 || cleanPhone.length === 9)) {
+        cleanPhone = '972' + cleanPhone;
+      }
+
+      let message = '';
+
+      // 4. ניסוח ההודעה
+      if (itemIndex !== null && order.items && order.items[itemIndex]) {
+        // בירור לגבי פריט ספציפי
+        const item = order.items[itemIndex];
+        const itemCode = item.catalogNum || item.item_id || item.catalog_number || '';
+        const itemName = item.name || item.item_name || item.description || 'פריט';
+
+        const itemQuestion = prompt(`שאלה ל-${agentName} לגבי הפריט:\n"${itemCode ? itemCode + ' - ' : ''}${itemName}":`);
+        if (!itemQuestion) return;
+
+        message =
+          `היי ${agentName},
+לגבי הזמנה מס' ${order.id} (${order.clientName}):
+📦 *בירור לגבי פריט:* ${itemCode ? itemCode + ' - ' : ''}${itemName}
+❓ *שאלה מהמחסן:* ${itemQuestion}`;
+
+      } else {
+        // בירור כללי על כל ההזמנה - צירוף רשימת הפריטים
+        let itemsSummary = '';
+        if (order.items && order.items.length > 0) {
+          const itemsListText = order.items.map(it => {
+            const code = it.catalogNum || it.item_id || it.catalog_number || '';
+            const name = it.name || it.item_name || it.description || 'פריט';
+            const qty = it.quantity || it.qty || 1;
+            return `• ${code ? code + ' - ' : ''}${name} (${qty} יח')`;
+          }).join('\n');
+
+          itemsSummary = `\n📋 *פירוט הפריטים בהזמנה:*\n${itemsListText}\n`;
+        }
+
+        const orderQuestion = prompt(`מה השאלה/העדכון ל-${agentName} לגבי הזמנה מס' ${order.id}?`);
+        if (!orderQuestion) return;
+
+        message =
+          `היי ${agentName},
+לגבי הזמנה מס' ${order.id} של הלקוח "${order.clientName}":
+${itemsSummary}
+❓ *עדכון מהמחסן:* ${orderQuestion}`;
+      }
+
+      // 5. פתיחת וואטסאפ
+      window.open(`https://wa.me/${cleanPhone}?text=${encodeURIComponent(message)}`, '_blank');
+    };
+
+    // ==================== מודאל פרטי לקוח (רווחית + מטמון מהיר) ====================
+    async function openCustomerModal(customerId, clientName) {
+      const modal = document.getElementById('customerModal');
+      const loading = document.getElementById('custModalLoading');
+      const content = document.getElementById('custModalContent');
+
+      if (!modal || !loading || !content) return;
+
+      document.getElementById('custModalTitle').textContent = clientName || 'פרטי לקוח';
+      modal.classList.remove('hidden');
+
+      if (!customerId) {
+        loading.classList.add('hidden');
+        content.classList.remove('hidden');
+        content.innerHTML = '<div class="text-rose-500 text-center py-4">לא קיים מספר לקוח עבור הזמנה זו</div>';
+        return;
+      }
+
+      // 1. מהירות 0ms: בדיקה קודם בזיכרון המקומי בדפדפן
+      const localCacheKey = `cust_${customerId}`;
+      const cachedData = localStorage.getItem(localCacheKey);
+      if (cachedData) {
+        try {
+          const c = JSON.parse(cachedData);
+          renderCustomerDetails(c, customerId);
+          return;
+        } catch (e) { }
+      }
+
+      // 2. שליפה מהשרת אם עדיין לא נשמר מקומית
+      loading.classList.remove('hidden');
+      content.classList.add('hidden');
+
+      try {
+        const res = await fetch(`${API_URL}?key=${SYSTEM_KEY}&action=getCustomerDetails&customerId=${encodeURIComponent(customerId)}`);
+        const data = await res.json();
+
+        if (data.success && data.customer) {
+          localStorage.setItem(localCacheKey, JSON.stringify(data.customer));
+          renderCustomerDetails(data.customer, customerId);
+        } else {
+          loading.classList.add('hidden');
+          content.classList.remove('hidden');
+          content.innerHTML = `<div class="text-rose-500 text-center py-4">${data.error || 'שגיאה בשליפת פרטי הלקוח'}</div>`;
+        }
+      } catch (err) {
+        loading.classList.add('hidden');
+        content.classList.remove('hidden');
+        content.innerHTML = '<div class="text-rose-500 text-center py-4">שגיאת תקשורת בטעינת הנתונים</div>';
+      }
+    }
+
+    function renderCustomerDetails(c, customerId) {
+      const loading = document.getElementById('custModalLoading');
+      const content = document.getElementById('custModalContent');
+
+      document.getElementById('custValId').textContent = c.id || customerId;
+      document.getElementById('custValVat').textContent = c.vatNumber || '—';
+      document.getElementById('custValAddress').textContent = c.address || '—';
+      document.getElementById('custValCity').textContent = c.city || '—';
+
+      const phoneEl = document.getElementById('custValPhoneLink');
+      if (c.phone) {
+        phoneEl.textContent = c.phone;
+        phoneEl.href = `tel:${c.phone}`;
+      } else {
+        phoneEl.textContent = '—';
+        phoneEl.removeAttribute('href');
+      }
+
+      loading.classList.add('hidden');
+      content.classList.remove('hidden');
+    }
+
+    function closeCustomerModal() {
+      const modal = document.getElementById('customerModal');
+      if (modal) modal.classList.add('hidden');
+    }
+
+    async function toggleCustomerAccordion() {
+      const btn = document.getElementById('btnToggleCustomer');
+      const panel = document.getElementById('customerDetailsAccordion');
+      const arrow = document.getElementById('custAccordionArrow');
+      const content = document.getElementById('customerAccordionContent');
+      if (!panel || !btn || !content) return;
+
+      // פתיחה או סגירה
+      const isCurrentlyOpen = !panel.classList.contains('hidden');
+      if (isCurrentlyOpen) {
+        panel.classList.add('hidden');
+        if (arrow) arrow.style.transform = 'rotate(0deg)';
+        return;
+      }
+
+      // הצגת הפאנל
+      panel.classList.remove('hidden');
+      if (arrow) arrow.style.transform = 'rotate(180deg)';
+
+      const customerId = (btn.dataset.custId || '').trim();
+      const customerName = btn.dataset.custName || 'לקוח';
+
+      if (!customerId) {
+        content.innerHTML = `
+      <div class="p-2 text-amber-700 bg-amber-100/60 rounded-lg text-center font-medium">
+        ⚠️ לא מוגדר מספר לקוח עבור הזמנה זו בגיליון
+      </div>
+    `;
+        return;
+      }
+
+      // 1. בדיקת מטמון בדפדפן
+      const cachedData = localStorage.getItem(`cust_${customerId}`);
+      if (cachedData) {
+        try {
+          const parsed = JSON.parse(cachedData);
+          renderCustomerAccordionData(content, parsed, customerName);
+          return;
+        } catch (e) { }
+      }
+
+      // 2. הצגת אנימציית טעינה
+      content.innerHTML = `
+    <div class="py-2 text-center text-slate-500 flex items-center justify-center gap-2">
+      <span class="animate-spin text-blue-600">⏳</span>
+      <span>טוען פרטים מרווחית...</span>
+    </div>
+  `;
+
+      // 3. שליפה מהשרת
+      try {
+        const res = await fetch(`${API_URL}?key=${SYSTEM_KEY}&action=getCustomerDetails&customerId=${encodeURIComponent(customerId)}`);
+        const data = await res.json();
+
+        if (data.success && data.customer) {
+          localStorage.setItem(`cust_${customerId}`, JSON.stringify(data.customer));
+          renderCustomerAccordionData(content, data.customer, customerName);
+        } else {
+          content.innerHTML = `
+        <div class="p-2 text-rose-700 bg-rose-50 rounded-lg border border-rose-200 text-center">
+          ${data.error || 'שגיאה בשליפת פרטי הלקוח'}
+        </div>
+      `;
+        }
+      } catch (err) {
+        console.error('Error fetching customer:', err);
+        content.innerHTML = `
+      <div class="p-2 text-rose-700 bg-rose-50 rounded-lg border border-rose-200 text-center">
+        שגיאת תקשורת בטעינת הפרטים
+      </div>
+    `;
+      }
+    }
+
+    function renderCustomerAccordionData(container, c, fallbackName) {
+      const fullAddress = [c.address, c.city].filter(Boolean).join(', ') || 'לא צוינה כתובת';
+      const name = c.name || fallbackName || 'לקוח';
+
+      container.innerHTML = `
+    <div class="border-b border-slate-200 pb-1.5 mb-2 flex justify-between items-center">
+      <span class="font-bold text-slate-800 text-sm">${name}</span>
+      <span class="text-[11px] text-slate-400 font-mono">לקוח #${c.id || '-'}</span>
+    </div>
+    
+    <div class="grid grid-cols-1 sm:grid-cols-2 gap-2 text-xs text-slate-600">
+      <div class="flex items-center gap-1.5">
+        <span>📍</span>
+        <span class="font-medium text-slate-800">${fullAddress}</span>
+      </div>
+
+      ${c.phone ? `
+        <div class="flex items-center gap-1.5">
+          <span>📞</span>
+          <a href="tel:${c.phone}" class="text-blue-600 hover:underline font-mono font-bold" dir="ltr">${c.phone}</a>
+        </div>
+      ` : ''}
+
+      ${c.vatNumber ? `
+        <div class="flex items-center gap-1.5">
+          <span>🏢</span>
+          <span>ח.פ / ת.ז: <strong class="font-mono">${c.vatNumber}</strong></span>
+        </div>
+      ` : ''}
+
+      ${c.email ? `
+        <div class="flex items-center gap-1.5 truncate">
+          <span>✉️</span>
+          <a href="mailto:${c.email}" class="text-blue-600 hover:underline truncate" dir="ltr">${c.email}</a>
+        </div>
+      ` : ''}
+    </div>
+  `;
+    }
+
+    // ==========================================
+    // אימות כניסה מאובטח למחסן
+    // ==========================================
+    document.addEventListener('DOMContentLoaded', () => {
+      const isAuth = sessionStorage.getItem('warehouse_authenticated');
+      if (isAuth === 'true') {
+        unlockWarehousePortal();
+      }
+    });
+
+    async function handleWarehouseLogin(e) {
+      if (e) e.preventDefault();
+
+      const userInput = document.getElementById('warehouseUserInput');
+      const passInput = document.getElementById('warehousePassInput');
+      const errorMsg = document.getElementById('warehouseLoginError');
+      const btn = document.getElementById('warehouseLoginBtn');
+
+      errorMsg.classList.add('hidden');
+      btn.disabled = true;
+      btn.innerText = 'מאמת פרטים...';
+
+      try {
+        const payload = {
+          action: 'verifyWarehouseAccess',
+          userId: userInput.value.trim(),
+          password: passInput.value.trim()
+        };
+
+        const targetUrl = typeof API_URL !== 'undefined' ? API_URL : (typeof SCRIPT_URL !== 'undefined' ? SCRIPT_URL : '');
+        const res = await (await fetch(targetUrl, {
+          method: 'POST',
+          body: JSON.stringify(payload)
+        })).json();
+
+        if (res.success) {
+          sessionStorage.setItem('warehouse_authenticated', 'true');
+          unlockWarehousePortal();
+        } else {
+          errorMsg.textContent = res.error || 'מספר זיהוי או סיסמה שגויים';
+          errorMsg.classList.remove('hidden');
+          passInput.value = '';
+          passInput.focus();
+        }
+      } catch (err) {
+        errorMsg.textContent = 'שגיאת תקשורת באימות: ' + err.message;
+        errorMsg.classList.remove('hidden');
+      } finally {
+        btn.disabled = false;
+        btn.innerText = 'כניסה למערכת';
+      }
+    }
+
+    // פתיחת הפורטל והפעלת טעינת הנתונים רק לאחר אימות מוצלח
+    function unlockWarehousePortal() {
+      const lockScreen = document.getElementById('warehouseLockScreen');
+      if (lockScreen) {
+        lockScreen.classList.add('hidden');
+      }
+
+      // הפעלת טעינת הנתונים בפועל
+      loadOrdersFromServer();
+      if (typeof fetchDeliveryOptions === 'function') fetchDeliveryOptions();
+      if (typeof fetchAgentsList === 'function') fetchAgentsList();
+
+      // רענון אוטומטי של הלוח כל 5 דקות
+      setInterval(loadOrdersFromServer, 5 * 60 * 1000);
+    }
+  </script>
+</body>
+
+</html>
