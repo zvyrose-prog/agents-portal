@@ -832,7 +832,7 @@
     // משתנה זמני לשמירת ההזמנה שמטופלת כרגע במודאל הלקוח החדש
     let pendingNewClientDispatch = null;
 
-    // פונקציה לפתיחת מודאל לקוח חדש
+    // פונקציה לפתיחת מודאל לקוח חדש עם מילוי אוטומטי של כתובת וטלפון מההזמנה
     function openNewLionWheelClientModal(orderId, selectedMethod = 'משלוח LionWheel', notesText = '') {
       pendingNewClientDispatch = { orderId, selectedMethod, notesText };
 
@@ -844,13 +844,53 @@
       const saveCheckbox = document.getElementById('nlw_saveToSheet');
       if (saveCheckbox) saveCheckbox.checked = true;
 
-      // אם יש שם לקוח בהזמנה הנוכחית - נמלא אותו אוטומטית לנוחות
-      const order = (typeof orders !== 'undefined' ? orders : []).find(o => String(o.id) === String(orderId));
-      if (order && order.clientName) {
-        const nameInput = document.getElementById('nlw_name');
-        if (nameInput) nameInput.value = order.clientName;
+      // שליפת ההזמנה הנוכחית
+      const order = (typeof orders !== 'undefined' ? orders : []).find(o => String(o.id) === String(orderId)) || {};
+
+      // ניסיון לאתר את פרטי הלקוח המלאים (אם קיימים באובייקט הלקוחות או בהזמנה עצמה)
+      let customer = null;
+      if (typeof customers !== 'undefined' && Array.isArray(customers)) {
+        customer = customers.find(c => 
+          (order.clientId && String(c.id) === String(order.clientId)) ||
+          (order.customerId && String(c.id) === String(order.customerId)) ||
+          (c.name && order.clientName && c.name.trim() === order.clientName.trim())
+        );
       }
 
+      // חילוץ הנתונים משולב: קודם מהלקוח המקושר, ואם אין אז ישירות משדות ההזמנה
+      const clientName = (customer && customer.name) || order.clientName || order.customer || '';
+      const phone = (customer && customer.phone) || order.phone || order.clientPhone || '';
+      const city = (customer && customer.city) || order.city || '';
+      const address = (customer && customer.address) || order.address || order.street || '';
+
+      // 1. הזנת שם לקוח
+      const nameInput = document.getElementById('nlw_name');
+      if (nameInput) nameInput.value = clientName;
+
+      // 2. הזנת טלפון
+      const phoneInput = document.getElementById('nlw_phone');
+      if (phoneInput) phoneInput.value = phone;
+
+      // 3. הזנת עיר
+      const cityInput = document.getElementById('nlw_city');
+      if (cityInput && city) cityInput.value = city;
+
+      // 4. חילוץ והזנת רחוב ומספר בית (פירוק חכם אם הכתובת מכילה מספר)
+      const streetInput = document.getElementById('nlw_street');
+      const buildingInput = document.getElementById('nlw_building');
+
+      if (address) {
+        // בדיקה האם יש מספר בית בתוך מחרוזת הכתובת (לדוגמה: "הרצל 15" או "ז'בוטינסקי 4א")
+        const numberMatch = address.match(/\b(\d+[א-ת]?)\b/);
+        if (numberMatch) {
+          if (buildingInput) buildingInput.value = numberMatch[1];
+          if (streetInput) streetInput.value = address.replace(numberMatch[0], '').trim();
+        } else {
+          if (streetInput) streetInput.value = address;
+        }
+      }
+
+      // פתיחת המודאל
       const modal = document.getElementById('newLionWheelClientModal');
       if (modal) modal.classList.remove('hidden');
     }
