@@ -1008,8 +1008,24 @@
       }
 
       // 3. שמירה בפועל לשרת / לגיליון
-      if (typeof archiveOrder === 'function') {
-        await archiveOrder(orderId, deliveryInfoValue);
+      try {
+        if (typeof updateOrderOnServer === 'function') {
+          await updateOrderOnServer(orderId, 'archived', deliveryInfoValue);
+        } else {
+          await fetch(API_URL, {
+            method: 'POST',
+            headers: { 'Content-Type': 'text/plain;charset=utf-8' },
+            body: JSON.stringify({
+              key: typeof SYSTEM_KEY !== 'undefined' ? SYSTEM_KEY : 'Ladlite2026Secure!',
+              orderId: String(orderId),
+              status: 'archived',
+              deliveryInfo: deliveryInfoValue,
+              archivedAt: new Date().toISOString()
+            })
+          });
+        }
+      } catch (err) {
+        console.error('שגיאה בשמירת ארכוב לשרת:', err);
       }
 
       // 4. סגירת מודאל ההזמנה הפתוח
