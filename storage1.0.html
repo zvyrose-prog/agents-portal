@@ -96,6 +96,40 @@
       <span class="text-base font-bold">+</span>
       <span>הזמנה חדשה</span>
     </button>
+    <!-- מעטפת כפתור קונטיינר והחלון הנפתח ממנו -->
+    <div class="relative inline-block text-right">
+      <button id="containerDrawerTab" type="button" onclick="toggleContainerDrawer()"
+        class="hidden bg-amber-500 hover:bg-amber-600 text-white font-medium text-sm px-4 py-2 rounded-xl shadow-sm transition flex items-center gap-2 cursor-pointer"
+        title="הזמנות בהמתנה לקונטיינר">
+        <span class="text-base">🚢</span>
+        <span>קונטיינר</span>
+        <span id="containerDrawerBadge"
+          class="bg-amber-700/70 text-white text-[10px] font-bold rounded-full px-2 py-0.5 min-w-[20px] text-center">0</span>
+      </button>
+
+      <!-- חלון שנפתח מתחת לכפתור -->
+      <div id="containerDrawer"
+        class="hidden absolute right-0 mt-2 w-80 sm:w-96 max-h-[75vh] bg-slate-50 z-50 shadow-2xl rounded-2xl border border-slate-200 flex flex-col overflow-hidden transition-all"
+        dir="rtl">
+        <div class="p-3 bg-amber-500 text-white flex items-center justify-between border-b border-amber-600 shadow-xs">
+          <div class="flex items-center gap-2">
+            <span class="text-lg">🚢</span>
+            <div>
+              <h3 class="font-bold text-xs leading-tight">בהמתנה לקונטיינר</h3>
+              <p class="text-[9px] text-amber-100">הזמנות מושהות שלא מופיעות בלוח</p>
+            </div>
+          </div>
+          <button type="button" onclick="toggleContainerDrawer(false)"
+            class="text-amber-100 hover:text-white text-lg font-bold p-1 leading-none cursor-pointer">&times;</button>
+        </div>
+
+        <div id="containerDrawerList" class="flex-1 overflow-y-auto p-2.5 space-y-2 max-h-[60vh]">
+          <!-- הכרטיסים יוזרקו כאן דינמית -->
+        </div>
+      </div>
+    </div>
+
+    <!-- כפתור רענון -->
     <button id="btnManualSync" onclick="manualSync()"
       class="bg-blue-600 hover:bg-blue-300 text-white font-medium text-sm px-4 py-2 rounded-xl shadow-sm transition flex items-center gap-2">
       <span id="syncIcon" class="text-sm">⟳</span>
@@ -850,7 +884,7 @@
       // ניסיון לאתר את פרטי הלקוח המלאים (אם קיימים באובייקט הלקוחות או בהזמנה עצמה)
       let customer = null;
       if (typeof customers !== 'undefined' && Array.isArray(customers)) {
-        customer = customers.find(c => 
+        customer = customers.find(c =>
           (order.clientId && String(c.id) === String(order.clientId)) ||
           (order.customerId && String(c.id) === String(order.customerId)) ||
           (c.name && order.clientName && c.name.trim() === order.clientName.trim())
@@ -1492,6 +1526,8 @@
                               <option value="packing">🔬 במעבדה</option>
                               <option value="ready">🚚 למשלוח</option>
                               <option value="done">💳 לחיוב</option>
+                              <option value="container_wait" class="text-amber-700 font-bold">🚢 בהמתנה לקונטיינר</option>
+                              <option value="archive">החזרה לארכיון</option>
                               <option value="archived" class="text-rose-600 font-bold">❌ ביטול הזמנה</option>
                             </select>
                           </div>
@@ -1633,6 +1669,8 @@
                           <option value="packing" ${order.status === 'packing' ? 'selected' : ''}>🔬 במעבדה</option>
                           <option value="ready" ${order.status === 'ready' ? 'selected' : ''}>🚚 למשלוח</option>
                           <option value="done" ${order.status === 'done' ? 'selected' : ''}>💳 לחיוב</option>
+                          <option value="container_wait" ${order.status === 'container_wait' ? 'selected' : ''} class="text-amber-700 font-bold">🚢 בהמתנה לקונטיינר</option>
+                          <option value="archive" ${order.status === 'archived' ? 'selected' : ''}>📦 החזרה לארכיון</option>
                           <option value="archived" ${order.status === 'archived' ? 'selected' : ''} class="text-rose-600 font-bold">❌ ביטול הזמנה</option>
                         </select>
                       </div>
@@ -1649,6 +1687,10 @@
 
       if (typeof updateArchiveBadge === 'function') {
         updateArchiveBadge();
+      }
+
+      if (typeof renderContainerDrawer === 'function') {
+        renderContainerDrawer();
       }
     }
 
@@ -1761,6 +1803,25 @@
       const order = orders.find(o => String(o.id) === String(orderId));
       if (!order) return;
 
+      // 0א. טיפול בהחזרה רגילה לארכיון (ללא ביטול, ללא אישור וללא הוספת הערה)
+      if (newStatus === 'archive') {
+        order.status = 'archived';
+        order.waitingForContainer = false;
+
+        // העברה למערך הארכיון והסרה מהלוח הפעיל
+        orders = orders.filter(o => String(o.id) !== String(orderId));
+        if (!window.archivedOrders) window.archivedOrders = [];
+        window.archivedOrders.unshift(order);
+
+        renderBoard();
+        if (typeof updateArchiveBadge === 'function') updateArchiveBadge();
+
+        if (typeof updateOrderOnServer === 'function') {
+          await updateOrderOnServer(orderId, 'archived');
+        }
+        return;
+      }
+
       // 0. טיפול בביטול הזמנה והעברה לארכיון
       if (newStatus === 'archived') {
         const isConfirmed = confirm(`האם לבטל את הזמנה #${orderId} ולהעביר אותה לארכיון?`);
@@ -1812,6 +1873,23 @@
           console.log(`הזמנה #${orderId} בוטלה והועברה לארכיון:`, msg);
         } catch (err) {
           console.error('שגיאה בסנכרון ביטול הזמנה לארכיון:', err);
+        }
+        return;
+      }
+
+      // טיפול בהעברה להמתנה לקונטיינר (מגירה צדדית)
+      if (newStatus === 'container_wait') {
+        order.previousStatus = order.status || 'new';
+        order.status = 'container_wait';
+        order.waitingForContainer = true;
+
+        renderBoard();
+        if (typeof renderContainerDrawer === 'function') {
+          renderContainerDrawer();
+        }
+
+        if (typeof updateOrderOnServer === 'function') {
+          await updateOrderOnServer(orderId, 'container_wait');
         }
         return;
       }
@@ -2090,6 +2168,8 @@
         <option value="packing" ${order.status === 'packing' ? 'selected' : ''}>🔬 במעבדה</option>
         <option value="ready" ${order.status === 'ready' ? 'selected' : ''}>🚚 למשלוח</option>
         <option value="done" ${order.status === 'done' ? 'selected' : ''}>💳 לחיוב</option>
+        <option value="container_wait" ${order.status === 'container_wait' ? 'selected' : ''} class="text-amber-700 font-bold">🚢 בהמתנה לקונטיינר</option>
+        <option value="archive" ${order.status === 'archived' ? 'selected' : ''}>📦 החזרה לארכיון</option>
         <option value="archived" ${order.status === 'archived' ? 'selected' : ''} class="text-rose-600 font-bold">❌ ביטול הזמנה</option>
       </select>
     `;
@@ -3228,6 +3308,102 @@ ${itemsSummary}
       }
     }
 
+    // פונקציות חלון קונטיינר (נפתח מתחת לכפתור)
+    function toggleContainerDrawer(forceState) {
+      const dropdown = document.getElementById('containerDrawer');
+      if (!dropdown) return;
+
+      const isHidden = dropdown.classList.contains('hidden');
+      const shouldOpen = typeof forceState === 'boolean' ? forceState : isHidden;
+
+      if (shouldOpen) {
+        dropdown.classList.remove('hidden');
+        renderContainerDrawer();
+      } else {
+        dropdown.classList.add('hidden');
+      }
+    }
+
+    // סגירה אוטומטית של החלון בלחיצה בחוץ
+    document.addEventListener('click', function (e) {
+      const dropdown = document.getElementById('containerDrawer');
+      const btn = document.getElementById('containerDrawerTab');
+      if (!dropdown || !btn) return;
+
+      if (!dropdown.classList.contains('hidden') && !dropdown.contains(e.target) && !btn.contains(e.target)) {
+        dropdown.classList.add('hidden');
+      }
+    });
+
+    function renderContainerDrawer() {
+      const containerList = document.getElementById('containerDrawerList');
+      const badge = document.getElementById('containerDrawerBadge');
+      if (!containerList) return;
+
+      const allOrders = typeof orders !== 'undefined' ? orders : [];
+      const containerOrders = allOrders.filter(o => o.status === 'container_wait' || o.waitingForContainer === true);
+
+      if (badge) badge.textContent = containerOrders.length;
+
+      if (containerOrders.length === 0) {
+        containerList.innerHTML = `
+          <div class="text-center py-12 text-slate-400 text-xs">
+            <span class="text-3xl block mb-2 opacity-50">🚢</span>
+            אין הזמנות בהמתנה לקונטיינר
+          </div>
+        `;
+        return;
+      }
+
+      containerList.innerHTML = containerOrders.map(order => `
+        <div class="bg-white rounded-xl p-3 border border-amber-200/80 shadow-xs hover:shadow-md transition text-right">
+          <div class="flex justify-between items-start mb-1">
+            <span class="font-bold text-slate-800 text-xs">${order.clientName || order.customer || 'לקוח'}</span>
+            <span class="font-mono text-[10px] text-amber-700 font-bold bg-amber-50 px-1.5 py-0.5 rounded border border-amber-200">#${order.id}</span>
+          </div>
+          
+          <div class="text-[11px] text-slate-500 mb-2">
+            ${order.notes || order.containerNotes || 'ממתין למלאי מקונטיינר'}
+          </div>
+
+          <div class="flex items-center justify-between pt-2 border-t border-slate-100">
+            <button 
+              type="button"
+              onclick="openOrderDetails('${order.id}')"
+              class="text-blue-600 hover:text-blue-800 font-bold text-[11px] cursor-pointer"
+            >
+              צפה בפרטים
+            </button>
+
+            <button 
+              type="button"
+              onclick="returnFromContainer('${order.id}')"
+              class="bg-amber-500 hover:bg-amber-600 text-white font-bold text-[10px] px-2.5 py-1 rounded shadow-xs cursor-pointer flex items-center gap-1"
+            >
+              <span>↩</span>
+              <span>החזר ללוח</span>
+            </button>
+          </div>
+        </div>
+      `).join('');
+    }
+
+    async function returnFromContainer(orderId) {
+      const order = (typeof orders !== 'undefined' ? orders : []).find(o => String(o.id) === String(orderId));
+      if (!order) return;
+
+      const targetStatus = order.previousStatus || 'new';
+      order.status = targetStatus;
+      order.waitingForContainer = false;
+
+      if (typeof renderBoard === 'function') renderBoard();
+      renderContainerDrawer();
+
+      if (typeof updateOrderOnServer === 'function') {
+        await updateOrderOnServer(orderId, targetStatus);
+      }
+    }
+
     function renderCustomerAccordionData(container, c, fallbackName) {
       const fullAddress = [c.address, c.city].filter(Boolean).join(', ') || 'לא צוינה כתובת';
       const name = c.name || fallbackName || 'לקוח';
@@ -3335,6 +3511,10 @@ ${itemsSummary}
 
       // רענון אוטומטי של הלוח כל 5 דקות
       setInterval(loadOrdersFromServer, 5 * 60 * 1000);
+
+      // חשיפת לשונית הקונטיינר לאחר התחברות
+      const containerTab = document.getElementById('containerDrawerTab');
+      if (containerTab) containerTab.classList.remove('hidden');
     }
   </script>
 </body>
